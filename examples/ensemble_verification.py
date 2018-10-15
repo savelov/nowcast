@@ -228,8 +228,6 @@ for n, parset in enumerate(parsets):
             ## define the callback function to export the nowcast to netcdf
             converter   = stp.utils.get_method("mm/h")
             def export(X):
-                ## transform back values 
-                X,_ = transformer(X, metadata, inverse=True)
                 ## convert to mm/h
                 X,_ = converter(X, metadata)
                 # readjust to initial domain shape
@@ -333,9 +331,9 @@ for n, parset in enumerate(parsets):
         metadata_fct["threshold"] = p["r_threshold"]
         
         ## if needed, compute accumulations
-        aggregator = stp.utils.get_method("aggregate")
-        R_obs, metadata_obs = aggregator(R_obs, metadata_obs, p["v_accu"], method="mean")
-        R_fct, metadata_fct = aggregator(R_fct, metadata_fct, p["v_accu"], method="mean")
+        aggregator = stp.utils.get_method("accumulate")
+        R_obs, metadata_obs = aggregator(R_obs, metadata_obs, p["v_accu"])
+        R_fct, metadata_fct = aggregator(R_fct, metadata_fct, p["v_accu"])
         leadtimes = metadata_fct["leadtimes"]
         
         # Do verification
