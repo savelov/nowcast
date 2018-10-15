@@ -1,5 +1,5 @@
 # data source specifications
-root_path  = ""
+root_path  = "/home/eugene/pysteps-data"
 path_fmt   = "radar/mch/%Y%m%d"
 fn_pattern = "AQC%y%j%H%M?_00005.801"
 fn_ext     = "gif"

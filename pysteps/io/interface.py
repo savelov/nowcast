@@ -50,6 +50,8 @@ def get_method(name, type):
             return importers.import_mch_gif
         elif name.lower() == "odim_hdf5":
             return importers.import_odim_hdf5
+        elif name.lower() == "gimet_tiff":
+            return importers.read_tif_gimet
         else:
             raise ValueError("unknown importer method %s" % name)
 

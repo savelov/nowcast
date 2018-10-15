@@ -594,3 +594,65 @@ def _read_odim_hdf5_what_group(whatgrp):
     undetect = whatgrp.attrs["undetect"] if "undetect" in whatgrp.attrs.keys() else 0.0
 
     return qty,gain,offset,nodata,undetect
+
+def read_tif_gimet(filename):
+    metadata = {}
+    geodata = _read_tif_geodata()
+
+    B = PIL.Image.open(filename)
+    B = np.array(B, dtype=int)
+
+    # generate lookup table in mmh-1
+    # valid for Gimet product only
+    lut = np.zeros(256)
+    for bytes in range(256):
+        if bytes == 0 :
+            lut[bytes] = np.nan
+        elif bytes == 1 :
+            lut[bytes] = -32
+        else :
+            lut[bytes] = (bytes - 1.0)/2.0 - 31.5
+
+    R = lut[B]
+
+    metadata = geodata
+    metadata["accutime"]    = 5.
+    metadata["unit"]        = "dBZ"
+    metadata["transform"]   = "dB"
+    metadata["zerovalue"]   = np.nanmin(R)
+    metadata["threshold"]   = np.nanmin(R[R>np.nanmin(R)])
+
+    return R, geodata, metadata
+
+def _read_tif_geodata():
+    geodata = {}
+
+    projdef = ""
+    # These are all hard-coded because the projection definition is missing from the
+    # gif files.
+    projdef += "+proj=stere"
+    projdef += " +lon_0=42"
+    projdef += " +lat_0=54"
+    #projdef += " +k_0=1"
+    projdef += " +x_0=0"
+    projdef += " +y_0=0"
+    projdef += " +ellps=bessel"
+    #projdef += " +towgs84=674.374,15.056,405.346,0,0,0,0"
+    #projdef += " +units=m"
+    #projdef += " +no_defs"
+
+    geodata["projection"] = projdef
+
+    mapsize = 1400
+
+    geodata["x1"] = -mapsize*1000
+    geodata["y1"] = -mapsize*1000
+    geodata["x2"] = mapsize*1000
+    geodata["y2"] = mapsize*1000
+
+    geodata["xpixelsize"] = 4000
+    geodata["ypixelsize"] = 4000
+
+    geodata["yorigin"] = "upper"
+
+    return geodata

@@ -1,5 +1,5 @@
 # data source specifications
-root_path  = ""
+root_path  = "/home/eugene/pysteps-data"
 path_fmt   = "radar/fmi/%Y%m%d"
 fn_pattern = "%Y%m%d%H%M_fmi.radar.composite.lowest_FIN_SUOMI1"
 fn_ext     = "pgm.gz"

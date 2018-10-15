@@ -1,5 +1,5 @@
 # data source specifications
-root_path  = ""
+root_path  = "/home/eugene/pysteps-data"
 path_fmt   = "radar/OPERA/%Y%m%d"
 fn_pattern = "T_PAAH21_C_EUOC_%Y%m%d%H%M%S"
 fn_ext     = "hdf"
