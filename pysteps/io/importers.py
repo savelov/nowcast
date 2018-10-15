@@ -619,7 +619,7 @@ def read_tif_gimet(filename):
     metadata["accutime"]    = 5.
     metadata["unit"]        = "dBZ"
     metadata["transform"]   = "dB"
-    metadata["zerovalue"]   = np.nanmin(R)
+    metadata["zerovalue"]   = -32
     metadata["threshold"]   = np.nanmin(R[R>np.nanmin(R)])
 
     return R, geodata, metadata
