@@ -182,12 +182,12 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_ens_num.long_name = "ensemble member"
     var_ens_num.units = ""
 
-    var_time = ncf.createVariable("time", np.int, dimensions=("time",))
+    var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        var_time[:] = [i*timestep*60 for i in range(1, n_timesteps+1)]
+        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
     var_time.long_name = "forecast time"
     startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
-    var_time.units = "seconds since %s" % startdate_str
+    var_time.units = "minutes since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=("ens_number", "time", "y", "x"),
@@ -214,6 +214,125 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     exporter["shape"] = shape
 
     return exporter
+
+def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
+                                        n_timesteps, shape, n_ens_members, metadata, incremental=None):
+    """Initialize a netCDF forecast exporter."""
+    if not netcdf4_imported:
+        raise Exception("netCDF4 not imported")
+
+    if not pyproj_imported:
+        raise Exception("pyproj not imported")
+
+    if incremental not in [None, "timestep"]:
+        raise ValueError("unknown option %s: incremental must be 'timestep'" % incremental)
+
+    if incremental == "timestep":
+        n_timesteps = None
+    elif incremental is not None:
+        raise ValueError("unknown argument value incremental='%s': must be 'timestep' or 'member'" % str(incremental))
+
+    exporter = {}
+
+    ncf = netCDF4.Dataset(filename, 'w', format="NETCDF4")
+
+    ncf.Conventions = "CF-1.7"
+    ncf.title = "pysteps-generated nowcast"
+    ncf.institution = "the pySTEPS community (https://pysteps.github.io)"
+    ncf.source = "pysteps" # TODO: Add pySTEPS version here
+    ncf.history = ""
+    ncf.references = ""
+    ncf.comment = ""
+
+    h,w = shape
+
+    ncf.createDimension("time", size=n_timesteps)
+    ncf.createDimension("y", size=h)
+    ncf.createDimension("x", size=w)
+
+    var_name = "precip_probability"
+    var_long_name = "probability of precipitation, " + str(n_ens_members) + "members"
+#    var_unit = None
+
+    xr = np.linspace(metadata["x1"], metadata["x2"], w+1)[:-1]
+    xr += 0.5 * (xr[1] - xr[0])
+    yr = np.linspace(metadata["y1"], metadata["y2"], h+1)[:-1]
+    yr += 0.5 * (yr[1] - yr[0])
+
+    var_xc = ncf.createVariable("xc", np.float32, dimensions=("x",))
+    var_xc[:] = xr
+    var_xc.axis = 'X'
+    var_xc.standard_name = "projection_x_coordinate"
+    var_xc.long_name = "x-coordinate in Cartesian system"
+    # TODO: Don't hard-code the unit.
+    var_xc.units = 'm'
+
+    var_yc = ncf.createVariable("yc", np.float32, dimensions=("y",))
+    var_yc[:] = yr
+    var_yc.axis = 'Y'
+    var_yc.standard_name = "projection_y_coordinate"
+    var_yc.long_name = "y-coordinate in Cartesian system"
+    # TODO: Don't hard-code the unit.
+    var_yc.units = 'm'
+
+    X,Y = np.meshgrid(xr, yr)
+    pr = pyproj.Proj(metadata["projection"])
+    lon,lat = pr(X.flatten(), Y.flatten(), inverse=True)
+
+    var_lon = ncf.createVariable("lon", np.float, dimensions=("y", "x"))
+    var_lon[:] = lon
+    var_lon.standard_name = "longitude"
+    var_lon.long_name     = "longitude coordinate"
+    # TODO: Don't hard-code the unit.
+    var_lon.units         = "degrees_east"
+
+    var_lat = ncf.createVariable("lat", np.float, dimensions=("y", "x"))
+    var_lat[:] = lat
+    var_lat.standard_name = "latitude"
+    var_lat.long_name     = "latitude coordinate"
+    # TODO: Don't hard-code the unit.
+    var_lat.units         = "degrees_north"
+
+    ncf.projection = metadata["projection"]
+
+    grid_mapping_var_name,grid_mapping_name,grid_mapping_params = \
+        _convert_proj4_to_grid_mapping(metadata["projection"])
+    # skip writing the grid mapping if a matching name was not found
+    if grid_mapping_var_name is not None:
+        var_gm = ncf.createVariable(grid_mapping_var_name, np.int, dimensions=())
+        var_gm.grid_mapping_name = grid_mapping_name
+        for i in grid_mapping_params.items():
+            var_gm.setncattr(i[0], i[1])
+
+    var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
+    if incremental != "timestep":
+        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
+    var_time.long_name = "forecast time"
+    startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
+    var_time.units = "minutes since %s" % startdate_str
+
+    var_F = ncf.createVariable(var_name, np.float32,
+                               dimensions=("time", "y", "x"),
+                               zlib=True, complevel=9)
+
+    var_F.long_name = var_long_name
+    var_F.coordinates = "y x"
+#    var_F.units = var_unit
+
+    exporter["method"] = "netcdf_prob"
+    exporter["ncfile"] = ncf
+    exporter["var_F"] = var_F
+    exporter["var_time"] = var_time
+    exporter["var_name"] = var_name
+    exporter["startdate"] = startdate
+    exporter["timestep"]  = timestep
+    exporter["metadata"]  = metadata
+    exporter["incremental"] = incremental
+    exporter["num_timesteps"] = n_timesteps
+    exporter["shape"] = shape
+
+    return exporter
+
 
 def export_forecast_dataset(F, exporter):
     """Write a forecast array into a file. The written dataset has dimensions
@@ -245,15 +364,26 @@ def export_forecast_dataset(F, exporter):
         raise Exception("netCDF4 not imported")
 
     if exporter["incremental"] == None:
-        shp = (exporter["num_ens_members"], exporter["num_timesteps"],
-               exporter["shape"][0], exporter["shape"][1])
-        if F.shape != shp:
-            raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
+        if ("prob" in exporter["method"]):
+            shp = (exporter["num_timesteps"],
+                   exporter["shape"][0], exporter["shape"][1])
+            if F.shape != shp:
+                raise ValueError("F has invalid shape: %s != %s" % (str(F.shape), str(shp)))
+        else:
+            shp = (exporter["num_ens_members"], exporter["num_timesteps"],
+                   exporter["shape"][0], exporter["shape"][1])
+            if F.shape != shp:
+                raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
     elif exporter["incremental"] == "timestep":
-        shp = (exporter["num_ens_members"], exporter["shape"][0],
-               exporter["shape"][1])
-        if F.shape != shp:
-            raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
+        if ("prob" in exporter["method"]):
+            shp = (exporter["shape"][0], exporter["shape"][1])
+            if F.shape != shp:
+                raise ValueError("F has invalid shape: %s != %s" % (str(F.shape), str(shp)))
+        else:
+            shp = (exporter["num_ens_members"], exporter["shape"][0],
+                   exporter["shape"][1])
+            if F.shape != shp:
+                raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
     elif exporter["incremental"] == "member":
         shp = (exporter["num_timesteps"], exporter["shape"][0],
                exporter["shape"][1])
@@ -262,6 +392,8 @@ def export_forecast_dataset(F, exporter):
 
     if exporter["method"] == "netcdf":
         _export_netcdf(F, exporter)
+    elif exporter["method"] == "netcdf_prob":
+        _export_netcdf_prob(F, exporter)
     else:
         raise ValueError("unknown exporter method %s" % exporter["method"])
 
@@ -276,6 +408,16 @@ def close_forecast_file(exporter):
         in this module.
     """
     exporter["ncfile"].close()
+
+def _export_netcdf_prob(F, exporter):
+    var_F = exporter["var_F"]
+
+    if exporter["incremental"] == None:
+        var_F[:] = F
+    elif exporter["incremental"] == "timestep":
+        var_F[var_F.shape[1], :, :] = F
+        var_time = exporter["var_time"]
+        var_time[len(var_time)-1] = len(var_time) * exporter["timestep"] * 60
 
 def _export_netcdf(F, exporter):
     var_F = exporter["var_F"]

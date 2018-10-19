@@ -63,6 +63,8 @@ def get_method(name, type):
     elif type.lower() == "exporter":
         if name.lower() == "netcdf":
             return exporters.initialize_forecast_exporter_netcdf
+        elif name.lower() == "netcdf_prob":
+            return exporters.initialize_forecast_exporter_netcdf_prob
         else:
             raise ValueError("unknown exporter method %s" % name)
 
