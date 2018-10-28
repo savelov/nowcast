@@ -35,7 +35,7 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810071030"
+startdate_str = "201810271540"
 data_source   = "gimet"
 
 ## methods
@@ -116,7 +116,7 @@ stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
                R_fct=R_fct, timestep_min=ds.timestep,
                UV=UV, motion_plot=cfg.motion_plot,
                geodata=metadata, colorscale=cfg.colorscale,
-               plotanimation=True, savefig=False, path_outputs=cfg.path_outputs) 
+               plotanimation=True, savefig=True, path_outputs=cfg.path_outputs)
 
 # Forecast verification
 print("Forecast verification...")

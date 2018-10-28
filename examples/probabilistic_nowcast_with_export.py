@@ -49,7 +49,7 @@ decomp_method       = "fft"
 ## forecast parameters
 n_prvs_times        = 5                # use at least 9 with DARTS
 n_lead_times        = 12
-n_ens_members       = 10
+n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
@@ -161,7 +161,12 @@ R_obs, _, metadata_obs = stp.io.read_timeseries(input_files_verif, importer,
 R_obs = R_obs[1:,:,:]
 metadata_obs["timestamps"] = metadata_obs["timestamps"][1:]
 
+## if requested, make sure we work with a square domain
+reshaper = stp.utils.get_method(adjust_domain)
+R_obs, metadata_obs = reshaper(R_obs, metadata_obs, method="pad")
+
 ## if necessary, convert to rain rates [mm/h]
+converter = stp.utils.get_method("mm/h")
 R_obs, metadata_obs = converter(R_obs, metadata_obs)
 
 ## threshold the data
