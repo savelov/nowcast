@@ -35,8 +35,8 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810071540"
-data_source   = "gimet"
+startdate_str = "201705091120"
+data_source   = "fmi"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
