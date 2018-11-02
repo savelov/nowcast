@@ -55,7 +55,7 @@ implements the following interface:
 """
 
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 try:
     import netCDF4
     netcdf4_imported = True
@@ -182,12 +182,12 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_ens_num.long_name = "ensemble member"
     var_ens_num.units = ""
 
-    var_time = ncf.createVariable("time", np.int, dimensions=("time",))
+    var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        for i in range(n_timesteps):
-            datetime = startdate + timedelta(minutes = (i+1)*timestep)
-            var_time[i] = int(datetime.strftime("%Y%m%d%H%M"))
+        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
     var_time.long_name = "forecast time"
+    startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
+    var_time.units = "minutes since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=("ens_number", "time", "y", "x"),
@@ -251,7 +251,7 @@ def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
     ncf.createDimension("x", size=w)
 
     var_name = "precip_probability"
-    var_long_name = "probability of precipitation, " + str(n_ens_members) + " members"
+    var_long_name = "probability of precipitation, " + str(n_ens_members) + "members"
 #    var_unit = None
 
     xr = np.linspace(metadata["x1"], metadata["x2"], w+1)[:-1]
@@ -304,14 +304,12 @@ def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
         for i in grid_mapping_params.items():
             var_gm.setncattr(i[0], i[1])
 
-    var_time = ncf.createVariable("time", np.int, dimensions=("time",))
+    var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        for i in range(n_timesteps):
-            datetime = startdate + timedelta(minutes = (i+1)*timestep)
-            var_time[i] = int(datetime.strftime("%Y%m%d%H%M"))
+        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
     var_time.long_name = "forecast time"
-    #startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
-    #var_time.units = "minutes since %s" % startdate_str
+    startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
+    var_time.units = "minutes since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=("time", "y", "x"),
