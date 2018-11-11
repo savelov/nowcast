@@ -35,7 +35,7 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810270600"
+startdate_str = "201811021820"
 data_source   = "gimet"
 
 ## methods
@@ -48,7 +48,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 5                # use at least 9 with DARTS
-n_lead_times        = 12
+n_lead_times        = 14
 n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2

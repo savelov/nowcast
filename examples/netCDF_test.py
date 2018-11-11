@@ -40,10 +40,10 @@ def get_prob(ncf, datetime_str, lat, lon): #по широте и долготе
     return _get_prob(ncf, datetime_str, x, y)
 
 
-filename = "/home/eugene/pysteps-data/out/probab_ensemble_nwc_201810270600.ncf"
+filename = "/home/ubuntu/pysteps-data/out/probab_ensemble_nwc_201811021820.ncf"
 
 ncf = open_netcdf(filename, 'r')
 print(ncf.startdate_str)
 
-a = get_prob(ncf, "201810270630", 50.5, 31.2)
+a = get_prob(ncf, "201811021840", 50.5, 31.2)
 print(a)

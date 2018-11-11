@@ -35,7 +35,7 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810271540"
+startdate_str = "201811021820"
 data_source   = "gimet"
 
 ## methods
