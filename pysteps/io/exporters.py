@@ -55,7 +55,7 @@ implements the following interface:
 """
 
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 try:
     import netCDF4
     netcdf4_imported = True
@@ -114,9 +114,9 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
         var_long_name = "instantaneous precipitation rate"
         var_unit = "mm h-1"
     elif metadata["unit"] == "mm":
-        var_name = "precip_accum"
+        var_name = "hourly_precip_accum"
         var_standard_name = None
-        var_long_name = "accumulated precipitation"
+        var_long_name = "hourly precipitation accumulation"
         var_unit = "mm"
     elif metadata["unit"] == "dBZ":
         var_name = "reflectivity"
@@ -182,12 +182,12 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_ens_num.long_name = "ensemble member"
     var_ens_num.units = ""
 
-    var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
+    var_time = ncf.createVariable("time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
+        for i in range(n_timesteps):
+            datetime = startdate + timedelta(minutes = (i+1)*timestep)
+            var_time[i] = int(datetime.strftime("%Y%m%d%H%M"))
     var_time.long_name = "forecast time"
-    startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
-    var_time.units = "minutes since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=("ens_number", "time", "y", "x"),
@@ -243,6 +243,7 @@ def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
     ncf.history = ""
     ncf.references = ""
     ncf.comment = ""
+    ncf.startdate_str = str(startdate)
 
     h,w = shape
 
@@ -251,7 +252,7 @@ def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
     ncf.createDimension("x", size=w)
 
     var_name = "precip_probability"
-    var_long_name = "probability of precipitation, " + str(n_ens_members) + "members"
+    var_long_name = "probability of precipitation, " + str(n_ens_members) + " members"
 #    var_unit = None
 
     xr = np.linspace(metadata["x1"], metadata["x2"], w+1)[:-1]
@@ -306,7 +307,7 @@ def initialize_forecast_exporter_netcdf_prob(filename, startdate, timestep,
 
     var_time = ncf.createVariable("fc_time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
+        var_time[:] = [i * timestep for i in range(1, n_timesteps + 1)]
     var_time.long_name = "forecast time"
     startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
     var_time.units = "minutes since %s" % startdate_str
