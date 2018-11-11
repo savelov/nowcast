@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-from tendo import singleton
-from glob import glob
-import os
-
-me = singleton.SingleInstance() # will sys.exit(-1) if other instance is running
-
+#!/bin/env python
 
 """Stochastic ensemble precipitation nowcasting
 
@@ -42,13 +35,7 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-archive_dir='/home/ubuntu/pysteps-data/radar/gimet'
-
-last_dir=sorted(os.listdir(archive_dir))[-1]
-last_fname=sorted(glob(archive_dir+"/"+last_dir+"/bufr_dbz1_*.tiff"))[-1]
-startdate_str=last_dir+last_fname[-9:-5]
-
-print(startdate_str)
+startdate_str = "201811021820"
 data_source   = "gimet"
 
 ## methods
@@ -161,3 +148,56 @@ exporter = export_initializer(filename, startdate, timestep, n_lead_times , shap
 stp.io.export_forecast_dataset(P, exporter)
 stp.io.close_forecast_file(exporter)
 
+# Forecast verification
+print("Forecast verification...")
+
+## find the verifying observations
+input_files_verif = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern,
+                                        ds.fn_ext, ds.timestep, 0, n_lead_times)
+
+## read observations
+R_obs, _, metadata_obs = stp.io.read_timeseries(input_files_verif, importer,
+                                                **ds.importer_kwargs)
+R_obs = R_obs[1:,:,:]
+metadata_obs["timestamps"] = metadata_obs["timestamps"][1:]
+
+## if requested, make sure we work with a square domain
+reshaper = stp.utils.get_method(adjust_domain)
+R_obs, metadata_obs = reshaper(R_obs, metadata_obs, method="pad")
+
+## if necessary, convert to rain rates [mm/h]
+converter = stp.utils.get_method("mm/h")
+R_obs, metadata_obs = converter(R_obs, metadata_obs)
+
+## threshold the data
+R_obs[R_obs<r_threshold] = 0.0
+metadata_obs["threshold"] = r_threshold
+
+## compute the average continuous ranked probability score (CRPS)
+scores = np.zeros(n_lead_times)*np.nan
+for i in range(n_lead_times):
+    scores[i] = stp.vf.CRPS(R_fct[:,i,:,:].reshape((n_ens_members, -1)).transpose(),
+                            R_obs[i,:,:].flatten())
+
+## if already exists, load the figure object to append the new verification results
+filename = "%s/%s" % (cfg.path_outputs, "verif_ensemble_nwc_example")
+if os.path.exists("%s.dat" % filename):
+    ax = pickle.load(open("%s.dat" % filename, "rb"))
+    print("Figure object loaded: %s.dat" % filename)
+else:
+    fig, ax = plt.subplots()
+
+## plot the scores
+nplots = len(ax.lines)
+x = (np.arange(n_lead_times) + 1)*ds.timestep
+ax.plot(x, scores, color="C%i"%(nplots + 1), label = "run %02d" % (nplots + 1))
+ax.set_xlabel("Lead-time [min]")
+ax.set_ylabel("CRPS")
+plt.legend()
+
+## dump the figure object
+pickle.dump(plt.gca(), open("%s.dat" % filename, "wb"))
+print("Figure object saved: %s.dat" % filename)
+# remove the pickle object to plot a new figure
+
+plt.show()
