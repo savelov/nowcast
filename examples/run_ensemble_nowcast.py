@@ -12,6 +12,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import pickle
 import os
+from glob import glob
 
 import pysteps as stp
 import config as cfg
@@ -35,8 +36,14 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201705091120"
-data_source   = "fmi"
+archive_dir='/home/ubuntu/pysteps-data/radar/gimet'
+
+last_dir=sorted(os.listdir(archive_dir))[-1]
+last_fname=sorted(glob(archive_dir+"/"+last_dir+"/bufr_dbz1_*.tiff"))[-1]
+startdate_str=last_dir+last_fname[-9:-5]
+
+print(startdate_str)
+data_source   = "gimet"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
