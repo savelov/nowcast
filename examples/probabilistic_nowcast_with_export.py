@@ -154,7 +154,7 @@ timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
 P = np.zeros((n_lead_times, shape[0], shape[1]))
 for i in range(n_lead_times):
-    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.5])
+    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.1])
 
 export_initializer = stp.io.get_method(name = 'netcdf_prob', type = 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
