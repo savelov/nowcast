@@ -40,16 +40,19 @@ import config as cfg
 #+-------+--------------+-------------+----------------------------------------+
 
 # Set parameters for this tutorial
+data_source="gimet"
+
+## import data specifications
+ds = cfg.get_specifications(data_source)
+
 
 ## input data (copy/paste values from table above)
-archive_dir='/home/ubuntu/pysteps-data/radar/gimet'
-
-last_dir=sorted(os.listdir(archive_dir))[-1]
-last_fname=sorted(glob(archive_dir+"/"+last_dir+"/bufr_dbz1_*.tiff"))[-1]
-startdate_str=last_dir+last_fname[-9:-5]
+archive_dir=ds.root_path+"/"+ds.path_fmt
+last_dir=""
+last_fname=sorted(glob(archive_dir+last_dir+"/*.tiff"))[-1]
+startdate_str=last_fname[-18:-11]+last_fname[-9:-5]
 
 print(startdate_str)
-data_source   = "gimet"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None

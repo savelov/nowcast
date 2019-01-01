@@ -711,9 +711,9 @@ def _read_tif_geodata():
     projdef = ""
     # These are all hard-coded because the projection definition is missing from the
     # gif files.
-    projdef += "+proj=stere"
-    projdef += " +lon_0=42"
-    projdef += " +lat_0=54"
+    projdef += "+proj=sterea"
+    projdef += " +lon_0=37.5"
+    projdef += " +lat_0=54.9"
     #projdef += " +k_0=1"
     projdef += " +x_0=0"
     projdef += " +y_0=0"
@@ -726,13 +726,13 @@ def _read_tif_geodata():
 
     mapsize = 1400
 
-    geodata["x1"] = -mapsize*1000
-    geodata["y1"] = -mapsize*1000
-    geodata["x2"] = mapsize*1000
-    geodata["y2"] = mapsize*1000
+    geodata["x1"] = -mapsize/2*1000
+    geodata["y1"] = -mapsize/2*1000
+    geodata["x2"] = mapsize/2*1000
+    geodata["y2"] = mapsize/2*1000
 
-    geodata["xpixelsize"] = 4000
-    geodata["ypixelsize"] = 4000
+    geodata["xpixelsize"] = 1000
+    geodata["ypixelsize"] = 1000
 
     geodata["yorigin"] = "upper"
 
