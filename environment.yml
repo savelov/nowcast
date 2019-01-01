@@ -1,11 +1,16 @@
 name: pysteps
-dependencies: 
+channels:
+- conda-forge
+- defaults
+dependencies:
   - python=3.6
-  - git
-  - dask
-  - numpy 
-  - matplotlib 
-  - opencv 
+  - attrdict
+  - jsmin
+  - jsonschema
+  - matplotlib
+  - netCDF4
+  - numpy
+  - opencv
   - pillow
   - pyproj
-  - scipy 
+  - scipy

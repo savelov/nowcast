@@ -12,10 +12,8 @@ import matplotlib.pylab as plt
 import numpy as np
 import pickle
 import os
-from glob import glob
 
 import pysteps as stp
-import config as cfg
 
 # List of case studies that can be used in this tutorial
 
@@ -36,14 +34,8 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-archive_dir='/home/ubuntu/pysteps-data/radar/gimet'
-
-last_dir=sorted(os.listdir(archive_dir))[-1]
-last_fname=sorted(glob(archive_dir+"/"+last_dir+"/bufr_dbz1_*.tiff"))[-1]
-startdate_str=last_dir+last_fname[-9:-5]
-
-print(startdate_str)
-data_source   = "gimet"
+startdate_str = "201701311030"
+data_source   = "mch"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
@@ -75,7 +67,7 @@ print('Read the data...')
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 
 ## import data specifications
-ds = cfg.get_specifications(data_source)
+ds = stp.rcparams.data_sources[data_source]
 
 ## find radar field filenames
 input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern,
@@ -145,10 +137,12 @@ R, metadata = reshaper(R, metadata, inverse=True)
 R[Rmask] = np.nan # reapply radar mask
 stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
                 R_fct=R_fct, timestep_min=ds.timestep,
-                UV=UV, motion_plot=cfg.motion_plot,
-                geodata=metadata, colorscale=cfg.colorscale,
-                plotanimation=True, savefig=True, path_outputs=cfg.path_outputs,
-                probmaps=True,probmap_thrs=[0.1,1.0])
+                UV=UV,
+                motion_plot=stp.rcparams.plot.motion_plot,
+                geodata=metadata,
+                colorscale=stp.rcparams.plot.colorscale,
+                plotanimation=True, savefig=False,
+                path_outputs=stp.rcparams.outputs.path_outputs)
 
 # Forecast verification
 print("Forecast verification...")
@@ -177,7 +171,7 @@ for i in range(n_lead_times):
                             R_obs[i,:,:].flatten())
 
 ## if already exists, load the figure object to append the new verification results
-filename = "%s/%s" % (cfg.path_outputs, "verif_ensemble_nwc_example")
+filename = "%s/%s" % (stp.rcparams.outputs.path_outputs, "verif_ensemble_nwc_example")
 if os.path.exists("%s.dat" % filename):
     ax = pickle.load(open("%s.dat" % filename, "rb"))
     print("Figure object loaded: %s.dat" % filename)

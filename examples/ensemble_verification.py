@@ -18,7 +18,6 @@ import sys
 import time
 
 import pysteps as stp
-import config as cfg
 
 # Verification settings
 verification = {
@@ -108,12 +107,13 @@ for n, parset in enumerate(parsets):
     pprint.pprint(p)
     
     # If necessary, build path to results
-    path_to_experiment = os.path.join(cfg.path_outputs, p["experiment_name"])
+    path_to_experiment = os.path.join(stp.rcparams.outputs.path_outputs, p["experiment_name"])
+    # subdir with event date
+    path_to_nwc = os.path.join(path_to_experiment, '-'.join([p["data"][0], p["data"][3]]))
     for key, item in p.items():
-        if key.lower() == "data":
-            path_to_nwc = os.path.join(path_to_experiment, '-'.join([item[0], item[3]]))
-        elif len(experiment.get(key,[None])) > 1: # include only variables that change
-            path_to_nwc = os.path.join(path_to_experiment, '-'.join([key, str(item)]))
+		# include only variables that change
+        if len(experiment.get(key,[None])) > 1 and key.lower() is not "data":
+            path_to_nwc = os.path.join(path_to_nwc, '-'.join([key, str(item)]))
     try:
         os.makedirs(path_to_nwc)
     except FileExistsError:
@@ -126,7 +126,7 @@ for n, parset in enumerate(parsets):
     # Loop forecasts within given event using the prescribed update cycle interval
 
     ## import data specifications
-    ds = cfg.get_specifications(p["data"][3])
+    ds = stp.rcparams.data_sources[p["data"][3]]
     
     if p["v_accu"] is None:
         p["v_accu"] = ds.timestep
@@ -342,11 +342,11 @@ for n, parset in enumerate(parsets):
         for i,lt in enumerate(p["v_leadtimes"]):
             
             idlt = leadtimes == lt
-                        
+            
             ## rank histogram
             R_fct_ = np.vstack([R_fct[j, idlt, :, :].flatten() for j in range(p["n_ens_members"])]).T
             stp.verification.ensscores.rankhist_accum(rankhists[lt], 
-                R_fct_, R_obs[idlt, :, :].flatten())
+                R_fct[:, idlt, :, :], R_obs[idlt, :, :])
 
             ## loop thresholds
             for thr in p["v_thresholds"]:    

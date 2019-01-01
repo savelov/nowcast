@@ -55,7 +55,10 @@ implements the following interface:
 """
 
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+
+from pysteps.exceptions import MissingOptionalDependency
+
 try:
     import netCDF4
     netcdf4_imported = True
@@ -74,10 +77,14 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
                                         metadata, incremental=None):
     """Initialize a netCDF forecast exporter."""
     if not netcdf4_imported:
-        raise Exception("netCDF4 not imported")
+        raise MissingOptionalDependency(
+            "netCDF4 package is required for netcdf "
+            "exporters but it is not installed")
 
     if not pyproj_imported:
-        raise Exception("pyproj not imported")
+        raise MissingOptionalDependency(
+            "pyproj package is required for netcdf "
+            "exporters but it is not installed")
 
     if incremental not in [None, "timestep", "member"]:
         raise ValueError("unknown option %s: incremental must be 'timestep' or 'member'" % incremental)
@@ -114,9 +121,9 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
         var_long_name = "instantaneous precipitation rate"
         var_unit = "mm h-1"
     elif metadata["unit"] == "mm":
-        var_name = "hourly_precip_accum"
+        var_name = "precip_accum"
         var_standard_name = None
-        var_long_name = "hourly precipitation accumulation"
+        var_long_name = "accumulated precipitation"
         var_unit = "mm"
     elif metadata["unit"] == "dBZ":
         var_name = "reflectivity"
@@ -184,10 +191,10 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     var_time = ncf.createVariable("time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        for i in range(n_timesteps):
-            datetime = startdate + timedelta(minutes = (i+1)*timestep)
-            var_time[i] = int(datetime.strftime("%Y%m%d%H%M"))
+        var_time[:] = [i*timestep*60 for i in range(1, n_timesteps+1)]
     var_time.long_name = "forecast time"
+    startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
+    var_time.units = "seconds since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=("ens_number", "time", "y", "x"),
@@ -362,7 +369,9 @@ def export_forecast_dataset(F, exporter):
         +-------------------+---------------------------------------------------+
     """
     if not netcdf4_imported:
-        raise Exception("netCDF4 not imported")
+        raise MissingOptionalDependency(
+            "netCDF4 package is required for netcdf "
+            "exporters but it is not installed")
 
     if exporter["incremental"] == None:
         if ("prob" in exporter["method"]):

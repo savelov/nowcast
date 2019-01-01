@@ -5,7 +5,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 from . import ensscores, probscores
 
-def plot_intensityscale(iss, fig=None, vmin=-2, vmax=1, kmperpixel=None):
+def plot_intensityscale(iss, fig=None, vmin=-2, vmax=1, kmperpixel=None, unit=None):
     """Plot a intensity-scale verification table with a color bar and axis
     labels.
 
@@ -26,6 +26,8 @@ def plot_intensityscale(iss, fig=None, vmin=-2, vmax=1, kmperpixel=None):
     kmperpixel : float
        Optional conversion factor from pixels to kilometers. If supplied,
        the unit of the shown spatial scales is km instead of pixels.
+    unit : string
+       Optional unit of the intensity thresholds.
 
     """
     if fig is None:
@@ -36,13 +38,16 @@ def plot_intensityscale(iss, fig=None, vmin=-2, vmax=1, kmperpixel=None):
     im = ax.imshow(iss["SS"], vmin=vmin, vmax=vmax, interpolation="nearest",
                    cmap=cm.jet)
     cb = fig.colorbar(im)
-    cb.set_label("Binary MSE skill score")
+    cb.set_label(iss["label"])
 
-    ax.set_xlabel("Intensity threshold (dBZ)")
-    if kmperpixel is None:
-        ax.set_ylabel("Spatial scale (pixels)")
+    if unit is None:
+        ax.set_xlabel("Intensity threshold")
     else:
-        ax.set_ylabel("Spatial scale (km)")
+        ax.set_xlabel("Intensity threshold [%s]" % unit)
+    if kmperpixel is None:
+        ax.set_ylabel("Spatial scale [pixels]")
+    else:
+        ax.set_ylabel("Spatial scale [km]")
 
     ax.set_xticks(np.arange(iss["SS"].shape[1]))
     ax.set_xticklabels(iss["thrs"])
@@ -134,7 +139,7 @@ def plot_reldiag(reldiag, ax=None):
     iax.yaxis.set_label_position("right")
     iax.tick_params(axis="both", which="major", labelsize=6)
 
-def plot_ROC(ROC, ax=None):
+def plot_ROC(ROC, ax=None, opt_prob_thr=False):
     """Plot a ROC curve.
 
     Parameters
@@ -144,6 +149,9 @@ def plot_ROC(ROC, ax=None):
     ax : axis handle
         Axis handle for the figure. If set to None, the handle is taken from
         the current figure (matplotlib.pylab.gca()).
+    opt_prob_thr : bool
+        If set to True, plot the optimal probability threshold that maximizes 
+        the difference between the hit rate (POD) and false alarm rate (POFD).
 
     """
     if ax is None:
@@ -159,10 +167,11 @@ def plot_ROC(ROC, ax=None):
     ax.set_ylabel("Probability of detection (POD)")
     ax.grid(True, ls=':')
 
-    l, = ax.plot(POFD, POD, "kD-")
-    opt_prob_thr_idx = np.argmax(np.array(POD) - np.array(POFD))
-    ax.scatter([POFD[opt_prob_thr_idx]], [POD[opt_prob_thr_idx]], c='r', s=150,
-               facecolors=None, edgecolors='r')
+    if opt_prob_thr:
+        l, = ax.plot(POFD, POD, "kD-")
+        opt_prob_thr_idx = np.argmax(np.array(POD) - np.array(POFD))
+        ax.scatter([POFD[opt_prob_thr_idx]], [POD[opt_prob_thr_idx]], c='r', s=150,
+                   facecolors=None, edgecolors='r')
 
     for p_thr_,x,y in zip(p_thr, POFD, POD):
         if p_thr_ > 0.05 and p_thr_ < 0.95:

@@ -36,10 +36,10 @@ def excprob(X, X_thr, ignore_nan=False):
     Parameters
     ----------
     X : array_like
-        Array of shape (n_members,m,n) containing an ensemble of forecast
-        fields of shape (m,n).
-    X_thr : a sequence of floats
-        Intensity thresholds for which the exceedance probabilities are
+        Array of shape (k,m,n,...) containing an k-member ensemble of forecasts
+        with shape (m,n,...).
+    X_thr : float or a sequence of floats
+        Intensity threshold(s) for which the exceedance probabilities are
         computed.
     ignore_nan : bool
         If True, ignore nan values.
@@ -47,20 +47,30 @@ def excprob(X, X_thr, ignore_nan=False):
     Returns
     -------
     out : ndarray
-        Array of shape (k,m,n) containing the exceedance probabilities for the
-        k given intensity thresholds.
+        Array of shape (len(X_thr),m,n) containing the exceedance probabilities 
+        for the given intensity thresholds. If len(X_thr)=1, the first dimension 
+        is dropped.
     """
     P = []
+
+    if np.isscalar(X_thr):
+        X_thr = [X_thr]
+        scalar_thr = True
+    else:
+        scalar_thr = False
 
     for x in X_thr:
         X_ = X.copy()
 
-        X_[X_ >= x] = 1.0
-        X_[X_ <  x] = 0.0
+        X_[X >= x] = 1.0
+        X_[X <  x] = 0.0
 
         if ignore_nan:
             P.append(np.nanmean(X_, axis=0))
         else:
             P.append(np.mean(X_, axis=0))
 
-    return np.stack(P)
+    if not scalar_thr:
+        return np.stack(P)
+    else:
+        return P[0]

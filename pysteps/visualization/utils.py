@@ -1,4 +1,5 @@
 """Miscellaneous utility functions."""
+from pysteps.exceptions import MissingOptionalDependency
 
 try:
     import cartopy.crs as ccrs
@@ -93,9 +94,14 @@ def proj4_to_cartopy(proj4str):
 
     """
     if not cartopy_imported:
-        raise Exception("cartopy not imported")
+        raise MissingOptionalDependency(
+            "cartopy package is required for proj4_to_cartopy function utility "
+            "but it is not installed")
+
     if not pyproj_imported:
-        raise Exception("pyproj not imported")
+        raise MissingOptionalDependency(
+            "pyproj package is required for proj4_to_cartopy function utility "
+            "but it is not installed")
 
     proj = pyproj.Proj(proj4str)
 
@@ -132,6 +138,8 @@ def proj4_to_cartopy(proj4str):
         if k == "proj":
             if v == "tmerc":
                 cl = ccrs.TransverseMercator
+            elif v == "laea":
+                cl = ccrs.LambertAzimuthalEqualArea
             elif v == "lcc":
                 cl = ccrs.LambertConformal
             elif v == "merc":

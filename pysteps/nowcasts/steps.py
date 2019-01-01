@@ -15,14 +15,14 @@ try:
 except ImportError:
     dask_imported = False
 
-def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
+def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6, R_thr=None,
              kmperpixel=None, timestep=None, extrap_method="semilagrangian",
              decomp_method="fft", bandpass_filter_method="gaussian",
              noise_method="nonparametric", noise_stddev_adj=False, ar_order=2,
              vel_pert_method=None, conditional=False, use_precip_mask=True,
              use_probmatching=True, mask_method="incremental", callback=None,
-             return_output=True, seed=None, num_workers=None, extrap_kwargs={},
-             filter_kwargs={}, noise_kwargs={}, vel_pert_kwargs={}):
+             return_output=True, seed=None, num_workers=None, fft_method="numpy",
+             extrap_kwargs={}, filter_kwargs={}, noise_kwargs={}, vel_pert_kwargs={}):
     """Generate a nowcast ensemble by using the Short-Term Ensemble Prediction
     System (STEPS) method.
 
@@ -63,17 +63,19 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
     bandpass_filter_method : {'gaussian', 'uniform'}
       Name of the bandpass filter method to use with the cascade decomposition.
       See the documentation of pysteps.cascade.interface.
-    noise_method : {'parametric','nonparametric','ssft','nested'}
+    noise_method : {'parametric','nonparametric','ssft','nested',None}
       Name of the noise generator to use for perturbating the precipitation
-      field. See the documentation of pysteps.noise.interface.
+      field. See the documentation of pysteps.noise.interface. If set to None,
+      no noise is generated.
     noise_stddev_adj : bool
       Optional adjustment for the standard deviations of the noise fields added
       to each cascade level. See pysteps.noise.utils.compute_noise_stddev_adjs.
     ar_order : int
       The order of the autoregressive model to use. Must be >= 1.
-    vel_pert_method : {'bps'}
-      Name of the noise generator to use for perturbing the velocity field. See
-      the documentation of pysteps.noise.interface.
+    vel_pert_method : {'bps',None}
+      Name of the noise generator to use for perturbing the advection field. See
+      the documentation of pysteps.noise.interface. If set to None, the advection 
+      field is not perturbed.
     conditional : bool
       If set to True, compute the statistics of the precipitation field
       conditionally by excluding the areas where the values are below the
@@ -106,6 +108,9 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
     num_workers : int
       The number of workers to use for parallel computation. Set to None to use
       all available CPUs. Applicable if dask is enabled.
+    fft_method : str or tuple
+      A string or a (function,kwargs) tuple defining the FFT method to use
+      (see utils.fft.get_method). Defaults to "numpy".
     extrap_kwargs : dict
       Optional dictionary that is supplied as keyword arguments to the
       extrapolation method.
@@ -125,12 +130,18 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
       If return_output is True, a four-dimensional array of shape
       (n_ens_members,n_timesteps,m,n) containing a time series of forecast
       precipitation fields for each ensemble member. Otherwise, a None value
-      is returned.
+      is returned. The time step is taken from the input precipitation fields R.
 
     See also
     --------
     pysteps.extrapolation.interface, pysteps.cascade.interface,
     pysteps.noise.interface, pysteps.noise.utils.compute_noise_stddev_adjs
+
+    Notes
+    -----
+    If noise_method and vel_pert_method are set to None and n_ens_members is set
+    to 1, the produced nowcast is deterministic (i.e. the S-PROG nowcast, see
+    :cite:`Seed2003`).
 
     References
     ----------
@@ -149,22 +160,22 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
         raise ValueError("unknown mask method %s: must be 'obs', 'sprog' or 'incremental'" % mask_method)
 
     if conditional and R_thr is None:
-        raise Exception("conditional=True but R_thr is not set")
+        raise ValueError("conditional=True but R_thr is not set")
 
     if use_probmatching and R_thr is None:
-        raise Exception("use_probmatching=True but R_thr is not set")
+        raise ValueError("use_probmatching=True but R_thr is not set")
 
     if kmperpixel is None:
-        if vel_pert_method is None:
-            raise Exception("vel_pert_method is set but kmperpixel=None")
+        if vel_pert_method is not None:
+            raise ValueError("vel_pert_method is set but kmperpixel=None")
         if mask_method == "incremental":
-            raise Exception("mask_method='incremental' but kmperpixel=None")
+            raise ValueError("mask_method='incremental' but kmperpixel=None")
 
     if timestep is None:
-        if vel_pert_method is None:
-            raise Exception("vel_pert_method is set but timestep=None")
+        if vel_pert_method is not None:
+            raise ValueError("vel_pert_method is set but timestep=None")
         if mask_method == "incremental":
-            raise Exception("mask_method='incremental' but timestep=None")
+            raise ValueError("mask_method='incremental' but timestep=None")
 
     print("Computing STEPS nowcast:")
     print("------------------------")
@@ -191,6 +202,7 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
     print("precipitation mask:     %s" % ("yes" if use_precip_mask else "no"))
     print("mask method:            %s" % mask_method)
     print("probability matching:   %s" % ("yes" if use_probmatching else "no"))
+    print("FFT method:             %s" % fft_method)
     print("")
 
     print("Parameters:")
@@ -241,7 +253,7 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
     decomp_method = cascade.get_method(decomp_method)
     R_d = []
     for i in range(ar_order+1):
-        R_ = decomp_method(R[i, :, :], filter, MASK=MASK_thr)
+        R_ = decomp_method(R[i, :, :], filter, MASK=MASK_thr, fft_method=fft_method)
         R_d.append(R_)
 
     # normalize the cascades and rearrange them into a four-dimensional array
@@ -262,7 +274,7 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
         # adjust the lag-2 correlation coefficient to ensure that the AR(p)
         # process is stationary
         for i in range(n_cascade_levels):
-            GAMMA[i, 1] = autoregression.adjust_lag2_corrcoef(GAMMA[i, 0], GAMMA[i, 1])
+            GAMMA[i, 1] = autoregression.adjust_lag2_corrcoef2(GAMMA[i, 0], GAMMA[i, 1])
 
     # estimate the parameters of the AR(p) model from the autocorrelation
     # coefficients
@@ -300,7 +312,7 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
         init_noise, generate_noise = noise.get_method(noise_method)
 
         # initialize the perturbation generator for the precipitation field
-        pp = init_noise(R, **noise_kwargs)
+        pp = init_noise(R, fft_method=fft_method, **noise_kwargs)
 
         if noise_stddev_adj:
             print("Computing noise adjustment factors... ", end="")
@@ -395,9 +407,10 @@ def forecast(R, V, n_timesteps, n_ens_members, n_cascade_levels, R_thr=None,
         def worker(j):
             if noise_method is not None:
                 # generate noise field
-                EPS = generate_noise(pp, randstate=randgen_prec[j])
+                EPS = generate_noise(pp, randstate=randgen_prec[j], 
+                                     fft_method=fft_method)
                 # decompose the noise field into a cascade
-                EPS = decomp_method(EPS, filter)
+                EPS = decomp_method(EPS, filter, fft_method=fft_method)
             else:
                 EPS = None
 
