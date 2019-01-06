@@ -133,7 +133,7 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   mask_method=mask_method,
+                   mask_method=mask_method, vel_pert_method=None,
                    probmatching_method=prob_matching, seed=seed)
 
 ## if necessary, transform back all data
