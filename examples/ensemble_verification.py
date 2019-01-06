@@ -44,10 +44,7 @@ forecast = {
 ## this includes tuneable parameters
 experiment = {
     ## the events           event start     event end       update cycle  data source
-    "data"              : [("201505151630", "201505151900", 30,           "mch"),
-                           ("201701311030", "201701311300", 30,           "mch"),
-                           ("201609281530", "201609281800", 30,           "fmi"),
-                           ("201705091130", "201705091400", 30,           "fmi")],
+    "data"              : [("201901030000", "201901030900", 30,           "gimet")],
     
     ## the methods
     "oflow_method"      : ["lucaskanade"],      # lucaskanade, darts
@@ -57,7 +54,7 @@ experiment = {
     "decomp_method"     : ["fft"],
     
     ## the parameters
-    "n_ens_members"     : [20],
+    "n_ens_members"     : [10],
     "ar_order"          : [2],
     "n_cascade_levels"  : [6],
     "noise_adjustment"  : [True],
