@@ -24,7 +24,7 @@ verification = {
     "experiment_name"   : "pysteps_default",
     "overwrite"         : False,            # to recompute nowcasts
     "v_thresholds"      : [0.1, 1.0],       # [mm/h]                 
-    "v_leadtimes"       : [10, 30, 60],     # [min]
+    "v_leadtimes"       : [10, 30, 60, 90, 120],     # [min]
     "v_accu"            : None,             # [min]
     "seed"              : 42,               # for reproducibility
     "doplot"            : True,            # save figures
