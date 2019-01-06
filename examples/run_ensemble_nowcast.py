@@ -34,8 +34,8 @@ import pysteps as stp
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201701311030"
-data_source   = "mch"
+startdate_str = "201901031650"
+data_source   = "gimet"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
