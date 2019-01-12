@@ -3,12 +3,10 @@ from . import conversion
 from . import transformation
 from . import dimension
 from . import fft
-from pysteps.exceptions import MissingOptionalDependency
 
-def get_method(name):
+def get_method(name, **kwargs):
     """Return a callable function for the utility method corresponding to the
-    given name. For the FFT methods, the return value is a two-element tuple
-    containing the function and a dictionary of keyword arguments.\n\
+    given name.\n\
 
     Conversion methods:
 
@@ -65,6 +63,9 @@ def get_method(name):
     |  pyfftw_fft       | pyfftw.interfaces.numpy_fft                            |
     +-------------------+--------------------------------------------------------+
 
+    Additional keyword arguments are passed to the initializer of the FFT 
+    methods, see utils.fft.
+
     """
 
     if name is None:
@@ -72,8 +73,8 @@ def get_method(name):
 
     name = name.lower()
 
-    def donothing(R, metadata, *args, **kwargs):
-        return R.copy(), metadata.copy()
+    def donothing(R, metadata=None, *args, **kwargs):
+        return R.copy(), {} if metadata is None else metadata.copy()
 
     methods_objects                 = dict()
     methods_objects["none"]         = donothing
@@ -98,29 +99,27 @@ def get_method(name):
     methods_objects["square"]       = dimension.square_domain
     methods_objects["upscale"]      = dimension.aggregate_fields_space
     # FFT methods
-    methods_objects["numpy"]        = _get_fft_method("numpy")
-    methods_objects["scipy"]        = _get_fft_method("scipy")
-
-    try:
-        if name == "pyfftw":
-            return _get_fft_method("pyfftw")
-        else:
+    if name in ["numpy", "pyfftw", "scipy"]:
+        if "shape" not in kwargs.keys():
+            raise KeyError("mandatory keyword argument shape not given")
+        return _get_fft_method(name, **kwargs)
+    else:
+        try:
             return methods_objects[name]
+        except KeyError as e:
+            raise ValueError("Unknown method %s\n" % e +
+                             "Supported methods:%s" % str(methods_objects.keys()))
 
-    except KeyError as e:
-        raise ValueError("Unknown method %s\n" % e +
-                         "Supported methods:%s" % str(methods_objects.keys()))
+def _get_fft_method(name, **kwargs):
+    kwargs = kwargs.copy()
+    shape = kwargs["shape"]
+    kwargs.pop("shape")
 
-def _get_fft_method(name):
     if name == "numpy":
-        return fft.numpy_fft,{}
+        return fft.get_numpy(shape, **kwargs)
     elif name == "scipy":
-        return fft.scipy_fft,{}
+        return fft.get_scipy(shape, **kwargs)
     elif name == "pyfftw":
-        if not fft.pyfftw_imported:
-            raise MissingOptionalDependency("pyfftw is required but it is not installed")
-        # TODO: Multithreading is currently disabled because it gives segfault
-        # with dask.
-        return fft.pyfftw_fft,{"threads":1, "planner_effort":"FFTW_ESTIMATE"}
+        return fft.get_pyfftw(shape, **kwargs)
     else:
         raise ValueError("unknown method %s, the available methods are 'numpy', 'scipy' and 'pyfftw'" % name)
