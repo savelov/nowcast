@@ -24,7 +24,7 @@ verification = {
     "experiment_name"   : "pysteps_default",
     "overwrite"         : False,            # to recompute nowcasts
     "v_thresholds"      : [0.1, 1.0],       # [mm/h]                 
-    "v_leadtimes"       : [10, 30, 60, 90, 120],     # [min]
+    "v_leadtimes"       : [10, 30, 60, 90, 120, 140],     # [min]
     "v_accu"            : None,             # [min]
     "seed"              : 42,               # for reproducibility
     "doplot"            : True,            # save figures
@@ -33,7 +33,7 @@ verification = {
 
 # Forecast settings
 forecast = {
-    "n_lead_times"      : 12,       # timesteps per nowcast
+    "n_lead_times"      : 14,       # timesteps per nowcast
     "r_threshold"       : 0.1,      # rain/no rain threshold [mm/h]
     "unit"              : "mm/h",   # mm/h or dBZ
     "transformation"    : "dB",     # None or dB 
@@ -44,7 +44,8 @@ forecast = {
 ## this includes tuneable parameters
 experiment = {
     ## the events           event start     event end       update cycle  data source
-    "data"              : [("201901030000", "201901030900", 30,           "gimet")],
+    "data"              : [("201901030000", "201901030900", 30,           "gimet"),
+			   ("201901120900", "201901121500", 30,           "gimet")],
     
     ## the methods
     "oflow_method"      : ["lucaskanade"],      # lucaskanade, darts
