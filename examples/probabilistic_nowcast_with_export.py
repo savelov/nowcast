@@ -63,7 +63,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 5                # use at least 9 with DARTS
-n_lead_times        = 14
+n_lead_times        = 4
 n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
@@ -157,7 +157,7 @@ P = np.zeros((n_lead_times, shape[0], shape[1]))
 for i in range(n_lead_times):
     P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.1])
 
-export_initializer = stp.io.get_method(name = 'netcdf_prob', type = 'exporter')
+export_initializer = stp.io.get_method('netcdf_prob', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
 stp.io.export_forecast_dataset(P, exporter)
 stp.io.close_forecast_file(exporter)
