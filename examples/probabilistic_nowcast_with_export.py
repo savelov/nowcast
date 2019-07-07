@@ -1,4 +1,11 @@
-#!/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+from tendo import singleton
+from glob import glob
+import os
+
+me = singleton.SingleInstance() # will sys.exit(-1) if other instance is running
+
 
 """Stochastic ensemble precipitation nowcasting
 
@@ -33,10 +40,18 @@ import config as cfg
 #+-------+--------------+-------------+----------------------------------------+
 
 # Set parameters for this tutorial
+data_source="gimet"
+
+## import data specifications
+ds = cfg.get_specifications(data_source)
+
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810071540"
-data_source   = "gimet"
+archive_dir=ds.root_path+"/"+ds.path_fmt
+last_fname=max(os.listdir(archive_dir))
+startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
+
+print(startdate_str)
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
@@ -47,13 +62,13 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 3                 # use at least 9 with DARTS
-n_lead_times        = 12
-n_ens_members       = 3
+n_prvs_times        = 5                # use at least 9 with DARTS
+n_lead_times        = 14
+n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
-adjust_noise        = True
+adjust_noise        = "auto"
 prob_matching       = True
 precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
@@ -68,14 +83,14 @@ print('Read the data...')
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 
 ## import data specifications
-ds = stp.rcparams.data_sources[data_source]
+ds = cfg.get_specifications(data_source)
 
 ## find radar field filenames
-input_files = stp.io.find_by_date(startdate, ds["root_path"], ds["path_fmt"], ds["fn_pattern"],
-                                  ds["fn_ext"], ds["timestep"], n_prvs_times, 0)
+input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern,
+                                  ds.fn_ext, ds.timestep, n_prvs_times, 0)
 
 ## read radar field files
-importer = stp.io.get_method(ds.importer, type="importer")
+importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
 Rmask = np.isnan(R)
 
@@ -118,8 +133,7 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   use_precip_mask=precip_mask, mask_method=mask_method,
-                   use_probmatching=prob_matching, seed=seed)
+                    seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -134,60 +148,17 @@ R, metadata = converter(R, metadata)
 R_fct, _    = reshaper(R_fct, metadata, inverse=True)
 R, metadata = reshaper(R, metadata, inverse=True)
 
-## plot the nowcast..
-R[Rmask] = np.nan # reapply radar mask
-stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
-                R_fct=R_fct, timestep_min=ds.timestep,
-                UV=UV, motion_plot=cfg.motion_plot,
-                geodata=metadata, colorscale=cfg.colorscale,
-                plotanimation=True, savefig=True, path_outputs=cfg.path_outputs,
-                probmaps=True,probmap_thrs=[0.1,1.0])
+## export to file
 
-# Forecast verification
-print("Forecast verification...")
-
-## find the verifying observations
-input_files_verif = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern,
-                                        ds.fn_ext, ds.timestep, 0, n_lead_times)
-
-## read observations
-R_obs, _, metadata_obs = stp.io.read_timeseries(input_files_verif, importer,
-                                                **ds.importer_kwargs)
-R_obs = R_obs[1:,:,:]
-metadata_obs["timestamps"] = metadata_obs["timestamps"][1:]
-
-## if necessary, convert to rain rates [mm/h]
-R_obs, metadata_obs = converter(R_obs, metadata_obs)
-
-## threshold the data
-R_obs[R_obs<r_threshold] = 0.0
-metadata_obs["threshold"] = r_threshold
-
-## compute the average continuous ranked probability score (CRPS)
-scores = np.zeros(n_lead_times)*np.nan
+filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
+timestep  = ds.timestep
+shape = (R_fct.shape[2],R_fct.shape[3])
+P = np.zeros((n_lead_times, shape[0], shape[1]))
 for i in range(n_lead_times):
-    scores[i] = stp.vf.CRPS(R_fct[:,i,:,:].reshape((n_ens_members, -1)).transpose(),
-                            R_obs[i,:,:].flatten())
+    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.1])
 
-## if already exists, load the figure object to append the new verification results
-filename = "%s/%s" % (cfg.path_outputs, "verif_ensemble_nwc_example")
-if os.path.exists("%s.dat" % filename):
-    ax = pickle.load(open("%s.dat" % filename, "rb"))
-    print("Figure object loaded: %s.dat" % filename)
-else:
-    fig, ax = plt.subplots()
+export_initializer = stp.io.get_method(name = 'netcdf_prob', type = 'exporter')
+exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
+stp.io.export_forecast_dataset(P, exporter)
+stp.io.close_forecast_file(exporter)
 
-## plot the scores
-nplots = len(ax.lines)
-x = (np.arange(n_lead_times) + 1)*ds.timestep
-ax.plot(x, scores, color="C%i"%(nplots + 1), label = "run %02d" % (nplots + 1))
-ax.set_xlabel("Lead-time [min]")
-ax.set_ylabel("CRPS")
-plt.legend()
-
-## dump the figure object
-pickle.dump(plt.gca(), open("%s.dat" % filename, "wb"))
-print("Figure object saved: %s.dat" % filename)
-# remove the pickle object to plot a new figure
-
-plt.show()

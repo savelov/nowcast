@@ -67,14 +67,15 @@
             "importer_kwargs": {
                 "accutime": 5
 			}
-        }
+        },
         "gimet": {
             "root_path": "/home/eugene/pysteps-data",
-            "path_fmt": "radar/gimet/%Y%m%d",
+            "path_fmt": "radar/gimet",
             "fn_pattern": "gimet_%Y%m%d_%H%M",
             "fn_ext": "tiff",
             "importer": "gimet_tiff",
-            "timestep": 10
+            "timestep": 10,
+            "importer_kwargs": {}
         }
     }
 }
