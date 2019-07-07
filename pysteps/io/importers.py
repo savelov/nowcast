@@ -1111,3 +1111,133 @@ def import_knmi_hdf5(filename, **kwargs):
     f.close()
 
     return R, None, metadata
+
+def import_gimet_geotiff(filename, **kwargs):
+    """Import a reflectivity field (dBZ) from an FMI GeoTIFF file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to import.
+
+    Returns
+    -------
+    out : tuple
+        A three-element tuple containing the precipitation field, the associated
+        quality field and metadata. The quality field is currently set to None.
+
+    """
+    if not gdal_imported:
+        raise MissingOptionalDependency(
+            "gdal package is required to import "
+            "FMI's radar reflectivity composite in GeoTIFF format "
+            "but it is not installed"
+        )
+
+    f = gdal.Open(filename, gdalconst.GA_ReadOnly)
+
+    rb = f.GetRasterBand(1)
+    R = rb.ReadAsArray()
+    MASK = R == 0
+    R = R.astype(float) * rb.GetScale() + rb.GetOffset()
+    R = (R - 64.0) / 2.0
+    R = (R - 1.0)/2.0 - 31.5
+
+    R[MASK] = np.nan
+
+    sr = osr.SpatialReference()
+    pr = f.GetProjection()
+    sr.ImportFromWkt(pr)
+
+    projdef = sr.ExportToProj4()
+
+
+    gt = f.GetGeoTransform()
+    print (projdef)
+    print (gt)
+
+    metadata = {}
+
+    metadata["projection"] = projdef
+    metadata["x1"] = gt[0]
+    metadata["y1"] = gt[3] + gt[5]*f.RasterYSize
+    metadata["x2"] = metadata["x1"] + gt[1]*f.RasterXSize
+    metadata["y2"] = gt[3]
+    metadata["xpixelsize"] = abs(gt[1])
+    metadata["ypixelsize"] = abs(gt[5])
+    if gt[5] < 0:
+        metadata["yorigin"] = "upper"
+    else:
+        metadata["yorigin"] = "lower"
+    metadata["institution"] = "GIMET"
+    metadata["unit"] = rb.GetUnitType()
+    metadata["transform"] = None
+    metadata["accutime"] = 10.0
+    R_min = np.nanmin(R)
+    metadata["threshold"] = np.nanmin(R[R > R_min])
+    metadata["zerovalue"] = R_min
+
+    return R, None, metadata
+
+
+def read_tif_gimet(filename):
+    metadata = {}
+    geodata = _read_tif_geodata()
+
+    B = PIL.Image.open(filename)
+    B = np.array(B, dtype=int)
+
+    # generate lookup table in mmh-1
+    # valid for Gimet product only
+    lut = np.zeros(256)
+    for bytes in range(256):
+        if bytes == 0 :
+            lut[bytes] = np.nan
+        elif bytes == 1 :
+            lut[bytes] = -32
+        else :
+            lut[bytes] = (bytes - 1.0)/2.0 - 31.5
+
+    R = lut[B]
+
+    metadata = geodata
+    metadata["accutime"]    = 5.
+    metadata["unit"]        = "dBZ"
+    metadata["transform"]   = "dB"
+    metadata["zerovalue"]   = np.nanmin(R)
+    metadata["threshold"]   = np.nanmin(R[R>np.nanmin(R)])
+
+    return R, geodata, metadata
+
+def _read_tif_geodata():
+    geodata = {}
+
+    projdef = ""
+    # These are all hard-coded because the projection definition is missing from the
+    # gif files.
+    projdef += "+proj=stere"
+    projdef += " +lon_0=42"
+    projdef += " +lat_0=54"
+    #projdef += " +k_0=1"
+    projdef += " +x_0=0"
+    projdef += " +y_0=0"
+    projdef += " +ellps=bessel"
+    #projdef += " +towgs84=674.374,15.056,405.346,0,0,0,0"
+    #projdef += " +units=m"
+    #projdef += " +no_defs"
+
+    geodata["projection"] = projdef
+
+    mapsize = 1400
+
+    geodata["x1"] = -mapsize*1000
+    geodata["y1"] = -mapsize*1000
+    geodata["x2"] = mapsize*1000
+    geodata["y2"] = mapsize*1000
+
+    geodata["xpixelsize"] = 4000
+    geodata["ypixelsize"] = 4000
+
+    geodata["yorigin"] = "upper"
+
+    return geodata

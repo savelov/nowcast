@@ -23,7 +23,8 @@ _importer_methods['mch_hdf5'] = importers.import_mch_hdf5
 _importer_methods['mch_metranet'] = importers.import_mch_metranet
 _importer_methods['opera_hdf5'] = importers.import_opera_hdf5
 _importer_methods['knmi_hdf5'] = importers.import_knmi_hdf5
-
+_importer_methods['gimet_tiff'] = importers.read_tif_gimet
+# or alternatively - import_gimet_geotif
 _exporter_methods = dict()
 _exporter_methods['netcdf'] = exporters.initialize_forecast_exporter_netcdf
 _exporter_methods['kineros'] = exporters.initialize_forecast_exporter_kineros
