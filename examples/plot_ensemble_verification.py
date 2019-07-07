@@ -28,8 +28,8 @@ from pysteps.visualization import plot_precip_field
 # configured with the data_source paths pointing to data folders.
 
 # Selected case
-date = datetime.strptime("201607112100", "%Y%m%d%H%M")
-data_source = rcparams.data_sources["mch"]
+date = datetime.strptime("201907071400", "%Y%m%d%H%M")
+data_source = rcparams.data_sources["gimet"]
 n_ens_members = 20
 n_leadtimes = 6
 seed = 24
@@ -54,6 +54,8 @@ fns = io.find_by_date(
     date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=2
 )
 
+print( fns)
+
 # Read the data from the archive
 importer = io.get_method(importer_name, "importer")
 R, _, metadata = io.read_timeseries(fns, importer, **importer_kwargs)
@@ -62,7 +64,7 @@ R, _, metadata = io.read_timeseries(fns, importer, **importer_kwargs)
 R, metadata = conversion.to_rainrate(R, metadata)
 
 # Upscale data to 2 km
-R, metadata = dimension.aggregate_fields_space(R, metadata, 2000)
+#R, metadata = dimension.aggregate_fields_space(R, metadata, 2000)
 
 # Plot the rainfall field
 plot_precip_field(R[-1, :, :], geodata=metadata)
