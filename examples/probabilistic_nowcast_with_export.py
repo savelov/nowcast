@@ -159,13 +159,9 @@ R, metadata = reshaper(R, metadata, inverse=True)
 filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
 timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
-P = np.zeros((n_ens_members, n_lead_times, shape[0], shape[1]))
-for i in range(n_lead_times):
-    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, -1, :, :], 0.1, ignore_nan=True)
 
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 print('input values: ', filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata)
 exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
-stp.io.export_forecast_dataset(P, exporter)
+stp.io.export_forecast_dataset(R_fct, exporter)
 stp.io.close_forecast_file(exporter)
-

@@ -283,13 +283,11 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     exporter = {}
 
-    print(filename)
     filename = os.path.realpath(filename)
     if not os.path.exists(os.path.dirname(filename)):
         os.mkdir(os.path.dirname(filename))
     ncf = netCDF4.Dataset(filename, 'w', format="NETCDF4")
 
-    print(ncf)
     ncf.Conventions = "CF-1.7"
     ncf.title = "pysteps-generated nowcast"
     ncf.institution = "the pySTEPS community (https://pysteps.github.io)"
@@ -297,7 +295,6 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     ncf.history = ""
     ncf.references = ""
     ncf.comment = ""
-    print(startdate)
     ncf.datetime = str(startdate)
 
     h, w = shape
@@ -339,7 +336,6 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_xc.units = 'm'
 
     var_yc = ncf.createVariable("yc", np.float32, dimensions=("y",))
-    print('yr is: ', yr)
     var_yc[:] = yr
     var_yc.axis = 'Y'
     var_yc.standard_name = "projection_y_coordinate"
@@ -349,23 +345,29 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     X, Y = np.meshgrid(xr, yr)
     pr = pyproj.Proj(metadata["projection"])
-    print('X, Y shape is:', (np.shape(X), np.shape(Y)))
 
-    # lon, lat = pr(X.flatten(), Y.flatten(), inverse=True)
-    lon = X
-    lat = Y
+    lon, lat = pr(X.flatten(), Y.flatten(), inverse=True)
+    new_long, new_lat = np.zeros((700, 700), dtype=np.float), np.zeros((700, 700), dtype=np.float)
+    idx = 0
+    for row in range(w):
+        for col in range(w):
+            new_long[row][col] = lon[idx]
+            idx += 1
+    idx = 0
+    for row in range(h):
+        for col in range(h):
+            new_lat[row][col] = lat[idx]
+            idx += 1
 
-    print('long shape is:', np.shape(lon))
     var_lon = ncf.createVariable("lon", np.float32, dimensions=("y", "x"))
-    print('var long shape is: ', np.shape(var_lon))
-    var_lon[:] = lon
+    var_lon[:] = new_long
     var_lon.standard_name = "longitude"
     var_lon.long_name = "longitude coordinate"
     # TODO(exporters): Don't hard-code the unit.
     var_lon.units = "degrees_east"
 
     var_lat = ncf.createVariable("lat", np.float, dimensions=("y", "x"))
-    var_lat[:] = lat
+    var_lat[:] = new_lat
     var_lat.standard_name = "latitude"
     var_lat.long_name = "latitude coordinate"
     # TODO(exporters): Don't hard-code the unit.
@@ -459,10 +461,7 @@ def export_forecast_dataset(F, exporter):
             "netCDF4 package is required for netcdf "
             "exporters but it is not installed")
 
-    print('exporter', exporter)
-    print('exporter[incremental]', exporter['incremental'])
     if exporter["incremental"] is None:
-        print('exporter["num_ens_members"]', exporter["num_ens_members"])
         shp = (exporter["num_ens_members"], exporter["num_timesteps"],
                exporter["shape"][0], exporter["shape"][1])
         if F.shape != shp:
