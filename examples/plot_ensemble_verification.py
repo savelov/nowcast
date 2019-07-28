@@ -7,6 +7,11 @@ In this tutorial we perform a verification of a probabilistic extrapolation nowc
 using MeteoSwiss radar data.
 
 """
+import pyximport
+pyximport.install()
+
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 
 from datetime import datetime
 import matplotlib.pyplot as plt

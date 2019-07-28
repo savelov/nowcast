@@ -4,7 +4,7 @@
     "silent_import": false,
     "outputs": {
         // path_outputs : path where to save results (figures, forecasts, etc)
-        "path_outputs": "/home/eugene/pysteps-data/out"
+        "path_outputs": "/home/ubuntu/pysteps-data/out"
     },
     "plot": {
         // "motion_plot" : "streamplot" or "quiver"
@@ -69,9 +69,9 @@
 			}
         },
         "gimet": {
-            "root_path": "/home/eugene/pysteps-data",
-            "path_fmt": "radar/gimet",
-            "fn_pattern": "gimet_%Y%m%d_%H%M",
+            "root_path": "/home/ubuntu/pysteps-data",
+            "path_fmt": "radar/gimet/20190716",
+            "fn_pattern": "bufr_dbz1_%Y%m%d_%H%M",
             "fn_ext": "tiff",
             "importer": "gimet_tiff",
             "timestep": 10,

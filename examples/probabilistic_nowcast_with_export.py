@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import pyximport
+pyximport.install()
+
 from tendo import singleton
 from glob import glob
 import os
@@ -18,7 +21,9 @@ import datetime
 import matplotlib.pylab as plt
 import numpy as np
 import pickle
-import os
+import os, sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 
 import pysteps as stp
 import config as cfg
@@ -49,6 +54,7 @@ ds = cfg.get_specifications(data_source)
 ## input data (copy/paste values from table above)
 archive_dir=ds.root_path+"/"+ds.path_fmt
 last_fname=max(os.listdir(archive_dir))
+print(last_fname)
 startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
 
 print(startdate_str)
@@ -79,7 +85,7 @@ adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
 # Read-in the data
-print('Read the data...')
+print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 
 ## import data specifications
@@ -153,11 +159,12 @@ R, metadata = reshaper(R, metadata, inverse=True)
 filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
 timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
-P = np.zeros((n_lead_times, shape[0], shape[1]))
+P = np.zeros((n_ens_members, n_lead_times, shape[0], shape[1]))
 for i in range(n_lead_times):
-    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.1])
+    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, -1, :, :], 0.1, ignore_nan=True)
 
-export_initializer = stp.io.get_method('netcdf_prob', 'exporter')
+export_initializer = stp.io.get_method('netcdf', 'exporter')
+print('input values: ', filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata)
 exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
 stp.io.export_forecast_dataset(P, exporter)
 stp.io.close_forecast_file(exporter)

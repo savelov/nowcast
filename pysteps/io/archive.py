@@ -72,11 +72,14 @@ def find_by_date(date, root_path, path_fmt, fn_pattern, fn_ext, timestep,
 
 
 def _find_matching_filename(date, root_path, path_fmt, fn_pattern, fn_ext):
+    print(date)
     path = _generate_path(date, root_path, path_fmt)
     fn = None
 
     if os.path.exists(path):
+        print('in archive, path is: {}, fn_ext: {}, fn_pattern: {}'.format(path, fn_ext, fn_pattern))
         fn = datetime.strftime(date, fn_pattern) + '.' + fn_ext
+        print('fn here is', fn)
 
         # test for wildcars
         if '?' in fn:
@@ -105,8 +108,12 @@ def _generate_path(date, root_path, path_format):
     if not isinstance(date, datetime):
         raise TypeError("The input 'date' argument must be a datetime object")
 
+    print('path_format', path_format)
     if path_format != "":
         sub_path = date.strftime(path_format)
+        print(sub_path, date)
+        date_new = datetime.strftime(date, '')
+        print('date_new is: ', date_new)
         return os.path.join(root_path, sub_path)
     else:
         return root_path
