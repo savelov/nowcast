@@ -161,7 +161,6 @@ timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
 
 prob_array = nowcast_probability(n_lead_times, shape, R_fct)
-=
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
