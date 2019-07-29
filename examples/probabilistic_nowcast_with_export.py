@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import os, sys
 import pyximport
 pyximport.install()
 
 from tendo import singleton
 from glob import glob
-import os
 
 me = singleton.SingleInstance() # will sys.exit(-1) if other instance is running
 
@@ -21,9 +21,9 @@ import datetime
 import matplotlib.pylab as plt
 import numpy as np
 import pickle
-import os, sys
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+
+from pysteps_custom_utils.probability_nowcasting import nowcast_probability
 
 import pysteps as stp
 import config as cfg
@@ -160,8 +160,10 @@ filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_
 timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
 
+prob_array = nowcast_probability(n_lead_times, shape, R_fct)
+=
 export_initializer = stp.io.get_method('netcdf', 'exporter')
-print('input values: ', filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata)
-exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
-stp.io.export_forecast_dataset(R_fct, exporter)
+exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
+                              product='precip_probability', incremental=None)
+stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
