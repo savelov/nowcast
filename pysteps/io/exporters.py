@@ -363,15 +363,15 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     pr = pyproj.Proj(metadata["projection"])
 
     lon, lat = pr(X.flatten(), Y.flatten(), inverse=True)
-    new_long, new_lat = np.zeros((700, 700), dtype=np.float), np.zeros((700, 700), dtype=np.float)
+    new_long, new_lat = np.zeros((h, w), dtype=np.float), np.zeros((h, w), dtype=np.float)
     idx = 0
-    for row in range(w):
+    for row in range(h):
         for col in range(w):
             new_long[row][col] = lon[idx]
             idx += 1
     idx = 0
     for row in range(h):
-        for col in range(h):
+        for col in range(w):
             new_lat[row][col] = lat[idx]
             idx += 1
 
