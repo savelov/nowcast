@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-import pyximport
-pyximport.install()
+#import pyximport
+#pyximport.install()
 
 from tendo import singleton
 from glob import glob
@@ -69,7 +69,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 5                # use at least 9 with DARTS
-n_lead_times        = 4
+n_lead_times        = 14
 n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
