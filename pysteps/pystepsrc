@@ -1,14 +1,16 @@
 // pysteps configuration
 {
+    // "silent_import" : whether to suppress the initial pysteps message
+    "silent_import": false,
     "outputs": {
         // path_outputs : path where to save results (figures, forecasts, etc)
-        "path_outputs": "/home/ubuntu/pysteps-data/out/"
+        "path_outputs": "/home/ubuntu/pysteps-data/out"
     },
     "plot": {
         // "motion_plot" : "streamplot" or "quiver"
         "motion_plot": "quiver",
-        // "colorscale" :  "MeteoSwiss" or "STEPS-BE"
-        "colorscale": "MeteoSwiss"
+        // "colorscale" :  "BOM-RF3", "pysteps" or "STEPS-BE"
+        "colorscale": "pysteps"
     },
     "data_sources": {
         "bom": {
@@ -55,14 +57,25 @@
             "timestep": 15,
             "importer_kwargs": {}
         },
-	"gimet": {
-	    "root_path": "/home/ubuntu/pysteps-data",
-	    "path_fmt": "radar/gimet/%Y%m%d",
-	    "fn_pattern": "bufr_dbz1_%Y%m%d_%H%M",
-	    "fn_ext": "tiff",
-	    "importer": "gimet_tiff",
-	    "timestep": 10,
-	    "importer_kwargs": {}
-	}
+        "knmi": {
+            "root_path": "./radar/KNMI",
+            "path_fmt": "%Y/%m",
+            "fn_pattern": "RAD_NL25_RAP_5min_%Y%m%d%H%M",
+            "fn_ext": "h5",
+            "importer": "knmi_hdf5",
+            "timestep": 5,
+            "importer_kwargs": {
+                "accutime": 5
+			}
+        },
+        "gimet": {
+            "root_path": "/home/ubuntu/pysteps-data",
+            "path_fmt": "radar/gimet/20190716",
+            "fn_pattern": "bufr_dbz1_%Y%m%d_%H%M",
+            "fn_ext": "tiff",
+            "importer": "gimet_tiff",
+            "timestep": 10,
+            "importer_kwargs": {}
+        }
     }
 }

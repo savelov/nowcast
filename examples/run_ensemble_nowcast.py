@@ -14,6 +14,7 @@ import pickle
 import os
 
 import pysteps as stp
+import config as cfg
 
 # List of case studies that can be used in this tutorial
 
@@ -34,8 +35,8 @@ import pysteps as stp
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201701311030"
-data_source   = "mch"
+startdate_str = "201810071540"
+data_source   = "gimet"
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
@@ -53,7 +54,8 @@ n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
 adjust_noise        = True
-prob_matching       = "cdf"
+prob_matching       = True
+precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
 conditional         = False
 unit                = "mm/h"            # mm/h or dBZ
@@ -69,8 +71,8 @@ startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 ds = stp.rcparams.data_sources[data_source]
 
 ## find radar field filenames
-input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern,
-                                  ds.fn_ext, ds.timestep, n_prvs_times, 0)
+input_files = stp.io.find_by_date(startdate, ds["root_path"], ds["path_fmt"], ds["fn_pattern"],
+                                  ds["fn_ext"], ds["timestep"], n_prvs_times, 0)
 
 ## read radar field files
 importer = stp.io.get_method(ds.importer, type="importer")
@@ -116,8 +118,8 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   mask_method=mask_method, probmatching_method=prob_matching,
-                   seed=seed)
+                   use_precip_mask=precip_mask, mask_method=mask_method,
+                   use_probmatching=prob_matching, seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -136,12 +138,10 @@ R, metadata = reshaper(R, metadata, inverse=True)
 R[Rmask] = np.nan # reapply radar mask
 stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
                 R_fct=R_fct, timestep_min=ds.timestep,
-                UV=UV,
-                motion_plot=stp.rcparams.plot.motion_plot,
-                geodata=metadata,
-                colorscale=stp.rcparams.plot.colorscale,
-                plotanimation=True, savefig=False,
-                path_outputs=stp.rcparams.outputs.path_outputs)
+                UV=UV, motion_plot=cfg.motion_plot,
+                geodata=metadata, colorscale=cfg.colorscale,
+                plotanimation=True, savefig=True, path_outputs=cfg.path_outputs,
+                probmaps=True,probmap_thrs=[0.1,1.0])
 
 # Forecast verification
 print("Forecast verification...")
@@ -170,7 +170,7 @@ for i in range(n_lead_times):
                             R_obs[i,:,:].flatten())
 
 ## if already exists, load the figure object to append the new verification results
-filename = "%s/%s" % (stp.rcparams.outputs.path_outputs, "verif_ensemble_nwc_example")
+filename = "%s/%s" % (cfg.path_outputs, "verif_ensemble_nwc_example")
 if os.path.exists("%s.dat" % filename):
     ax = pickle.load(open("%s.dat" % filename, "rb"))
     print("Figure object loaded: %s.dat" % filename)

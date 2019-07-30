@@ -14,6 +14,7 @@ import pickle
 import os
 
 import pysteps as stp
+import config as cfg
 
 # List of case studies that can be used in this tutorial
 
@@ -34,8 +35,8 @@ import pysteps as stp
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201701311030"
-data_source   = "mch"
+startdate_str = "201810071030"
+data_source   = "gimet"
 
 ## methods
 oflow_method    = "lucaskanade"      # lucaskanade, darts, None
@@ -57,7 +58,7 @@ print('Read the data...')
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 
 ## import data specifications
-ds = stp.rcparams.data_sources[data_source]
+ds = cfg.get_specifications(data_source)
 
 ## find radar field filenames
 input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pattern, 
@@ -112,13 +113,10 @@ R, metadata = converter(R, metadata)
 ## plot the nowcast...
 R[Rmask] = np.nan # reapply radar mask
 stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
-                R_fct=R_fct, timestep_min=ds.timestep,
-                UV=UV,
-                motion_plot=stp.rcparams.plot.motion_plot,
-                geodata=metadata,
-                colorscale=stp.rcparams.plot.colorscale,
-                plotanimation=True, savefig=False,
-                path_outputs=stp.rcparams.outputs.path_outputs)
+               R_fct=R_fct, timestep_min=ds.timestep,
+               UV=UV, motion_plot=cfg.motion_plot,
+               geodata=metadata, colorscale=cfg.colorscale,
+               plotanimation=True, savefig=False, path_outputs=cfg.path_outputs) 
 
 # Forecast verification
 print("Forecast verification...")
@@ -145,7 +143,7 @@ for i in range(n_lead_times):
                                     v_threshold, [skill_score])[0]
 
 ## if already exists, load the figure object to append the new verification results
-filename = "%s/%s" % (stp.rcparams.outputs.path_outputs, "verif_deterministic_nwc_example")
+filename = "%s/%s" % (cfg.path_outputs, "verif_deterministic_nwc_example")
 if os.path.exists("%s.dat" % filename):
     ax = pickle.load(open("%s.dat" % filename, "rb"))
     print("Figure object loaded: %s.dat" % filename) 

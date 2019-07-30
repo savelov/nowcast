@@ -4,7 +4,7 @@
 #  To be deprecated in the next version!
 import warnings
 
-from pysteps import rcparams
+from nowcast.pysteps import rcparams
 
 warnings.warn("config module will be deprecated in the next release; "
               + "use rcparams instead.",

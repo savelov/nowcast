@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import os, sys
+import pyximport
+pyximport.install()
+
 from tendo import singleton
 from glob import glob
-import os
 
 me = singleton.SingleInstance() # will sys.exit(-1) if other instance is running
 
@@ -18,7 +21,9 @@ import datetime
 import matplotlib.pylab as plt
 import numpy as np
 import pickle
-import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+
+from pysteps_custom_utils.probability_nowcasting import nowcast_probability
 
 import pysteps as stp
 import config as cfg
@@ -47,10 +52,10 @@ ds = cfg.get_specifications(data_source)
 
 
 ## input data (copy/paste values from table above)
-archive_dir='/home/ubuntu/pysteps-data/radar/gimet'
-last_dir=sorted(os.listdir(archive_dir))[-1]
-last_fname=sorted(glob(archive_dir+"/"+last_dir+"/bufr_dbz1_*.tiff"))[-1]
-startdate_str=last_dir+last_fname[-9:-5]
+archive_dir=ds.root_path+"/"+ds.path_fmt
+last_fname=max(os.listdir(archive_dir))
+print(last_fname)
+startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
 
 print(startdate_str)
 
@@ -64,13 +69,14 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 5                # use at least 9 with DARTS
-n_lead_times        = 14
+n_lead_times        = 4
 n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
-adjust_noise        = True
-prob_matching       = "cdf"
+adjust_noise        = "auto"
+prob_matching       = True
+precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
 conditional         = False
 unit                = "mm/h"            # mm/h or dBZ
@@ -79,7 +85,7 @@ adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
 # Read-in the data
-print('Read the data...')
+print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
 
 ## import data specifications
@@ -90,7 +96,7 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
                                   ds.fn_ext, ds.timestep, n_prvs_times, 0)
 
 ## read radar field files
-importer = stp.io.get_method(ds.importer, type="importer")
+importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
 Rmask = np.isnan(R)
 
@@ -133,8 +139,7 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   mask_method=mask_method, vel_pert_method=None,
-                   probmatching_method=prob_matching, seed=seed)
+                    seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -154,12 +159,10 @@ R, metadata = reshaper(R, metadata, inverse=True)
 filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
 timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
-P = np.zeros((n_lead_times, shape[0], shape[1]))
-for i in range(n_lead_times):
-    P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.1])
 
-export_initializer = stp.io.get_method(name = 'netcdf_prob', type = 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
-stp.io.export_forecast_dataset(P, exporter)
+prob_array = nowcast_probability(n_lead_times, shape, R_fct)
+export_initializer = stp.io.get_method('netcdf', 'exporter')
+exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
+                              product='precip_probability', incremental=None)
+stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
-

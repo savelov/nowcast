@@ -1,77 +1,125 @@
+"""
+pysteps.io.interface
+====================
 
-from . import importers
-from . import exporters
+Interface for the io module.
 
-def get_method(name, type):
-    """Return a callable function for the method corresponding to the given name.
+.. currentmodule:: pysteps.io.interface
+
+.. autosummary::
+    :toctree: ../generated/
+
+    get_method
+"""
+
+from pysteps.io import importers, exporters
+
+_importer_methods = dict()
+_importer_methods['bom_rf3'] = importers.import_bom_rf3
+_importer_methods['fmi_geotiff'] = importers.import_fmi_geotiff
+_importer_methods['fmi_pgm'] = importers.import_fmi_pgm
+_importer_methods['mch_gif'] = importers.import_mch_gif
+_importer_methods['mch_hdf5'] = importers.import_mch_hdf5
+_importer_methods['mch_metranet'] = importers.import_mch_metranet
+_importer_methods['opera_hdf5'] = importers.import_opera_hdf5
+_importer_methods['knmi_hdf5'] = importers.import_knmi_hdf5
+_importer_methods['gimet_tiff'] = importers.read_tif_gimet
+# or alternatively - import_gimet_geotif
+_exporter_methods = dict()
+_exporter_methods['netcdf'] = exporters.initialize_forecast_exporter_netcdf
+_exporter_methods['kineros'] = exporters.initialize_forecast_exporter_kineros
+
+
+def get_method(name, method_type):
+    """Return a callable function for the method corresponding to the given 
+    name.
 
     Parameters
     ----------
     name : str
-        Name of the method. The available options are:\n\
+        Name of the method. The available options are:\n
 
         Importers:
 
         .. tabularcolumns:: |p{2cm}|L|
 
-        +-------------------+---------------------------------------------------------+
-        |     Name          |              Description                                |
-        +===================+=========================================================+
-        |     bom_rf3       |  NetCDF files in the Bureau of Meterology (BoM) archive |
-        |                   |  containing precipitation intensity composites          |
-        +-------------------+---------------------------------------------------------+
-        |     fmi_pgm       |  PGM files in the Finnish Meteorological Institute      |
-        |                   |  (FMI) archive containing reflectivity composites (dBZ) |
-        +-------------------+---------------------------------------------------------+
-        |     mch_gif       |  GIF files in the MeteoSwiss archive containing         |
-        |                   |  precipitation composites                               |
-        +-------------------+---------------------------------------------------------+
-        |     mch_hdf5      |  HDF5 file format used by MeteoSiss                     |
-        +-------------------+---------------------------------------------------------+
-        |     mch_metranet  |  metranet files in the MeteoSwiss archive containing    |
-        |                   |  precipitation composites                               |
-        +-------------------+---------------------------------------------------------+
-        |     odim_hdf5     |  ODIM HDF5 file format used by Eumetnet/OPERA           |
-        +-------------------+---------------------------------------------------------+
+        +--------------+-------------------------------------------------------+
+        |     Name     |              Description                              |
+        +==============+=======================================================+
+        | bom_rf3      |  NefCDF files used in the Boreau of Meterorology      |
+        |              |  archive containing precipitation intensity           |
+        |              |  composites.                                          |
+        +--------------+-------------------------------------------------------+
+        | fmi_geotiff  |  GeoTIFF files used in the Finnish Meteorological     |
+        |              |  Institute (FMI) archive, containing reflectivity     |
+        |              |  composites (dBZ).                                    |
+        +--------------+-------------------------------------------------------+
+        | fmi_pgm      |  PGM files used in the Finnish Meteorological         |
+        |              |  Institute (FMI) archive, containing reflectivity     |
+        |              |  composites (dBZ).                                    |
+        +--------------+-------------------------------------------------------+
+        | mch_gif      | GIF files in the MeteoSwiss (MCH) archive containing  |
+        |              | precipitation composites.                             |
+        +--------------+-------------------------------------------------------+
+        | mch_hdf5     | HDF5 file format used by MeteoSiss (MCH).             |
+        +--------------+-------------------------------------------------------+
+        | mch_metranet | metranet files in the MeteoSwiss (MCH) archive        |
+        |              | containing precipitation composites.                  |
+        +--------------+-------------------------------------------------------+
+        | opera_hdf5   | ODIM HDF5 file format used by Eumetnet/OPERA.         |
+        +--------------+-------------------------------------------------------+
+        | knmi_hdf5    |  HDF5 file format used by KNMI.                       |
+        +--------------+-------------------------------------------------------+
 
         Exporters:
+        
+        .. tabularcolumns:: |p{2cm}|L|
 
         +-------------+--------------------------------------------------------+
         |     Name    |              Description                               |
         +=============+========================================================+
-        | netcdf      | NetCDF files conforming to the CF 1.7 specification    |
+        | kineros     | KINEROS2 Rainfall file as specified in                 |
+        |             | https://www.tucson.ars.ag.gov/kineros/.                |
+        |             | Grid points are treated as individual rain gauges.     |
+        |             | A separate file is produced for each ensemble member.  |
+        +-------------+--------------------------------------------------------+
+        | netcdf      | NetCDF files conforming to the CF 1.7 specification.   |
         +-------------+--------------------------------------------------------+
 
-    type : str
+    method_type : str
         Type of the method. The available options are 'importer' and 'exporter'.
 
     """
-    if type.lower() == "importer":
-        if name.lower() == "bom_rf3":
-            return importers.import_bom_rf3
-        elif name.lower() == "fmi_pgm":
-            return importers.import_fmi_pgm
-        elif name.lower() == "mch_gif":
-            return importers.import_mch_gif
-        elif name.lower() == "mch_hdf5":
-            return importers.import_mch_hdf5
-        elif name.lower() == "mch_metranet":
-            return importers.import_mch_metranet
-        elif name.lower() == "odim_hdf5":
-            return importers.import_odim_hdf5
-        elif name.lower() == "gimet_tiff":
-            return importers.read_tif_gimet
-        else:
-            raise ValueError("unknown importer method %s" % name)
 
-    elif type.lower() == "exporter":
-        if name.lower() == "netcdf":
-            return exporters.initialize_forecast_exporter_netcdf
-        elif name.lower() == "netcdf_prob":
-            return exporters.initialize_forecast_exporter_netcdf_prob
-        else:
-            raise ValueError("unknown exporter method %s" % name)
-
-
+    if isinstance(method_type, str):
+        method_type = method_type.lower()
     else:
-        raise ValueError("unknown method type %s" % type)
+        raise TypeError("Only strings supported for for the method_type"
+                        + " argument\n"
+                        + "The available types are: 'importer' and 'exporter'"
+                        ) from None
+
+    if isinstance(name, str):
+        name = name.lower()
+    else:
+        raise TypeError("Only strings supported for the method's names.\n"
+                        + "Available importers names:"
+                        + str(list(_importer_methods.keys()))
+                        + "\nAvailable exporters names:"
+                        + str(list(_exporter_methods.keys()))) from None
+
+    if method_type == "importer":
+        methods_dict = _importer_methods
+    elif method_type == "exporter":
+        methods_dict = _exporter_methods
+    else:
+        raise ValueError("Unknown method type {}\n".format(name)
+                         + "The available types are: 'importer' and 'exporter'"
+                         ) from None
+
+    try:
+        return methods_dict[name]
+    except KeyError:
+        raise ValueError("Unknown {} method {}\n".format(method_type, name)
+                         + "The available methods are:"
+                         + str(list(methods_dict.keys()))) from None
