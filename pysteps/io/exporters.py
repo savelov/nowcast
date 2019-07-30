@@ -563,7 +563,7 @@ def _export_netcdf(F, exporter):
     var_F = exporter["var_F"]
 
     if exporter["incremental"] is None:
-        var_F[:] = F
+        var_F[:] = F[:,::-1,:]
     elif exporter["incremental"] == "timestep":
         var_F[:, var_F.shape[1], :, :] = F
         var_time = exporter["var_time"]
