@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-import pyximport
-pyximport.install()
+if sys.platform in ['win32', 'win64']:
+    import pyximport
+    pyximport.install()
 
 from tendo import singleton
 from glob import glob
