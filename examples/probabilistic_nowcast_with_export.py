@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-#import pyximport
-#pyximport.install()
+import pyximport
+pyximport.install()
 
 from tendo import singleton
 from glob import glob
@@ -60,7 +60,7 @@ startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
 print(startdate_str)
 
 ## methods
-oflow_method        = "lucaskanade"     # lucaskanade, darts, None
+oflow_method        = "vet"     # lucaskanade, darts, None
 nwc_method          = "steps"
 adv_method          = "semilagrangian"  # semilagrangian, eulerian
 noise_method        = "nonparametric"   # parametric, nonparametric, ssft
@@ -68,7 +68,7 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 5                # use at least 9 with DARTS
+n_prvs_times        = 2                # use at least 9 with DARTS
 n_lead_times        = 14
 n_ens_members       = 5
 n_cascade_levels    = 6
@@ -123,14 +123,20 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-## set NaN equal to zero
-R[~np.isfinite(R)] = metadata["zerovalue"]
+R = np.ma.masked_invalid(R)
+R.data[R.mask] = np.nan
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)
 UV = oflow_method(R)
 
 # Perform the nowcast
+extrap_kwargs={}
+extrap_kwargs['allow_nonfinite_values'] = True
+
+## set NaN equal to zero
+R[~np.isfinite(R)] = metadata["zerovalue"]
+
 nwc_method = stp.nowcasts.get_method(nwc_method)
 R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    n_cascade_levels, kmperpixel=metadata["xpixelsize"]/1000,
@@ -139,11 +145,14 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                    seed=seed)
+                    seed=seed, extrap_kwargs=extrap_kwargs)
 
 ## if necessary, transform back all data
+R_fct = np.ma.masked_invalid(R_fct)
+R_fct.data[R_fct.mask] = np.nan
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
 R, metadata = transformer(R, metadata, inverse=True)
+
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
