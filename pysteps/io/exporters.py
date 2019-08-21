@@ -453,7 +453,7 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     return exporter
 
 
-def export_forecast_dataset(F, exporter):
+def export_forecast_dataset(F, exporter, mask=None):
     """Write a forecast array into a file.
 
     The written dataset has dimensions
@@ -506,7 +506,7 @@ def export_forecast_dataset(F, exporter):
             raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
 
     if exporter["method"] == "netcdf":
-        _export_netcdf(F, exporter)
+        _export_netcdf(F, exporter, mask)
     elif exporter["method"] == "kineros":
         _export_kineros(F, exporter)
     else:
@@ -561,7 +561,7 @@ def _export_kineros(F, exporter):
                 fd.writelines("END\n\n")
 
 
-def _export_netcdf(F, exporter):
+def _export_netcdf(F, exporter, mask=None):
     var_F = exporter["var_F"]
 
     if exporter["incremental"] is None:

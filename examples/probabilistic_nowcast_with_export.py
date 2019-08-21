@@ -98,7 +98,7 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
 ## read radar field files
 importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
-Rmask = np.isnan(R)
+Rmask = np.isnan(R[-1])
 
 # Prepare input files
 print("Prepare the data...")
@@ -113,6 +113,8 @@ R, metadata = converter(R, metadata)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
+R_zero_mask = np.zeros((R[-1].shape[0], R[-1].shape[1]))
+R_zero_mask[R[-1] == 0] = 1 #1 where no rain
 metadata["threshold"] = r_threshold
 
 ## convert the data
@@ -136,9 +138,10 @@ extrap_kwargs['allow_nonfinite_values'] = True
 
 ## set NaN equal to zero
 R[~np.isfinite(R)] = metadata["zerovalue"]
+R.data[R.mask] = metadata["zerovalue"]
 
 nwc_method = stp.nowcasts.get_method(nwc_method)
-R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
+R_fct = nwc_method(R.data, UV, n_lead_times, n_ens_members,
                    n_cascade_levels, kmperpixel=metadata["xpixelsize"]/1000,
                    timestep=ds.timestep,  R_thr=metadata["threshold"],
                    extrap_method=adv_method, decomp_method=decomp_method,
@@ -147,11 +150,8 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    ar_order=ar_order, conditional=conditional,
                     seed=seed, extrap_kwargs=extrap_kwargs)
 
-## if necessary, transform back all data
-R_fct = np.ma.masked_invalid(R_fct)
-R_fct.data[R_fct.mask] = np.nan
-R_fct, _    = transformer(R_fct, metadata, inverse=True)
-R, metadata = transformer(R, metadata, inverse=True)
+R_fct, _    = transformer(R_fct, metadata, inverse=True, zerovalue=-15)
+R, metadata = transformer(R, metadata, inverse=True, zerovalue=-15)
 
 
 ## convert all data to mm/h
@@ -167,11 +167,17 @@ R, metadata = reshaper(R, metadata, inverse=True)
 
 filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
 timestep  = ds.timestep
-shape = (R_fct.shape[2],R_fct.shape[3])
+shape = (R_fct.shape[2], R_fct.shape[3])
 
-prob_array = nowcast_probability(n_lead_times, shape, R_fct)
+prob_array, no_data_mask = nowcast_probability(n_lead_times, shape, R_fct)
+
 export_initializer = stp.io.get_method('netcdf', 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
-                              product='precip_probability', incremental=None)
+exporter = export_initializer(filename, startdate, timestep, n_lead_times, shape, n_ens_members, metadata,
+                               product='precip_probability', incremental=None)
+
+for time_step in range(n_lead_times):
+    prob_array[time_step][R_zero_mask == 1] = 0.0
+    prob_array[time_step][Rmask] = np.nan
+
 stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
