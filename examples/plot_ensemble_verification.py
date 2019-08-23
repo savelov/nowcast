@@ -19,6 +19,8 @@ import numpy as np
 from pprint import pprint
 from pysteps import io, nowcasts, rcparams, verification
 from pysteps.motion.lucaskanade import dense_lucaskanade
+#from pysteps.motion.lucaskanade import dense_lucaskanade
+from pysteps.motion.interface import get_method
 from pysteps.postprocessing import ensemblestats
 from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field
@@ -35,8 +37,8 @@ from pysteps.visualization import plot_precip_field
 # Selected case
 date = datetime.strptime("201908172000", "%Y%m%d%H%M")
 data_source = rcparams.data_sources["gimet"]
-n_ens_members = 20
-n_leadtimes = 6
+n_ens_members = 5
+n_leadtimes = 14
 seed = 24
 
 ###############################################################################
@@ -92,7 +94,8 @@ pprint(metadata)
 # We use the STEPS approach to produce a ensemble nowcast of precipitation fields.
 
 # Estimate the motion field
-V = dense_lucaskanade(R)
+motion_method = get_method('vet') # vet or lucaskanade
+V = motion_method(R)
 
 # Perform the ensemble nowcast with STEPS
 nowcast_method = nowcasts.get_method("steps")
