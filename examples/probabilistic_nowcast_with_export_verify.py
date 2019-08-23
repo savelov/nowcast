@@ -11,10 +11,25 @@ import datetime
 import matplotlib.pylab as plt
 import numpy as np
 import pickle
-import os
+import os, sys
+
+import pyximport
+pyximport.install()
+
+from tendo import singleton
+from glob import glob
+
+me = singleton.SingleInstance() # will sys.exit(-1) if other instance is running
+
+from pysteps_custom_utils.probability_nowcasting import nowcast_probability
 
 import pysteps as stp
 import config as cfg
+
+
+
+
+
 
 # List of case studies that can be used in this tutorial
 
@@ -35,7 +50,7 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201811021820"
+startdate_str = "201908172000"
 data_source   = "gimet"
 
 ## methods
@@ -53,7 +68,7 @@ n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
-adjust_noise        = True
+adjust_noise        = "auto"
 prob_matching       = True
 precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
@@ -75,7 +90,7 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
                                   ds.fn_ext, ds.timestep, n_prvs_times, 0)
 
 ## read radar field files
-importer = stp.io.get_method(ds.importer, type="importer")
+importer = stp.io.get_method(ds.importer, method_type="importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
 Rmask = np.isnan(R)
 
@@ -118,8 +133,7 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   use_precip_mask=precip_mask, mask_method=mask_method,
-                   use_probmatching=prob_matching, seed=seed)
+                    seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -143,9 +157,11 @@ P = np.zeros((n_lead_times, shape[0], shape[1]))
 for i in range(n_lead_times):
     P[i,:,:] = stp.postprocessing.ensemblestats.excprob(R_fct[:, i, :, :], [0.5])
 
-export_initializer = stp.io.get_method(name = 'netcdf_prob', type = 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata, incremental=None)
-stp.io.export_forecast_dataset(P, exporter)
+prob_array = nowcast_probability(n_lead_times, shape, R_fct)
+export_initializer = stp.io.get_method(name = 'netcdf', method_type = 'exporter')
+exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
+                              product='precip_probability', incremental=None)
+stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
 
 # Forecast verification

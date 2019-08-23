@@ -33,7 +33,7 @@ from pysteps.visualization import plot_precip_field
 # configured with the data_source paths pointing to data folders.
 
 # Selected case
-date = datetime.strptime("201907071400", "%Y%m%d%H%M")
+date = datetime.strptime("201908172000", "%Y%m%d%H%M")
 data_source = rcparams.data_sources["gimet"]
 n_ens_members = 20
 n_leadtimes = 6
@@ -155,7 +155,7 @@ R_o, _, metadata_o = io.read_timeseries(fns, importer, **importer_kwargs)
 R_o, metadata_o = conversion.to_rainrate(R_o, metadata_o)
 
 # Upscale data to 2 km
-R_o, metadata_o = dimension.aggregate_fields_space(R_o, metadata_o, 2000)
+#R_o, metadata_o = dimension.aggregate_fields_space(R_o, metadata_o, 2000)
 
 # Compute the verification for the last lead time
 

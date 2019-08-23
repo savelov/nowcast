@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-#import pyximport
-#pyximport.install()
+import pyximport
+pyximport.install()
 
 from tendo import singleton
 from glob import glob
@@ -55,7 +55,7 @@ ds = cfg.get_specifications(data_source)
 archive_dir=ds.root_path+"/"+ds.path_fmt
 last_fname=max(os.listdir(archive_dir))
 print(last_fname)
-startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
+startdate_str= "201908172000" #last_fname[-18:-10]+last_fname[-9:-5]
 
 print(startdate_str)
 
