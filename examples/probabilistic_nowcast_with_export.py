@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-#import pyximport
-#pyximport.install()
+import pyximport
+pyximport.install()
 
 from tendo import singleton
 from glob import glob
