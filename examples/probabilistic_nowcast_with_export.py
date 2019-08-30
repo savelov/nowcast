@@ -76,7 +76,7 @@ n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
 adjust_noise        = "auto"
-prob_matching       = True
+prob_matching       = "mean"
 precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
 conditional         = False
@@ -140,7 +140,9 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                    seed=seed)
+                   mask_method=mask_method,
+                   probmatching_method=prob_matching,
+                   seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
