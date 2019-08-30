@@ -70,7 +70,7 @@
         },
         "gimet": {
             "root_path": "/home/ubuntu/pysteps-data",
-            "path_fmt": "radar/gimet/20190716",
+            "path_fmt": "radar/gimet/20190829",
             "fn_pattern": "bufr_dbz1_%Y%m%d_%H%M",
             "fn_ext": "tiff",
             "importer": "gimet_tiff",
