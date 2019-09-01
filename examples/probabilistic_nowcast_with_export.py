@@ -142,8 +142,8 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    ar_order=ar_order, conditional=conditional,
                    mask_method=mask_method,
                    probmatching_method=prob_matching,
-                   vel_pert_kwargs={ 'p_par' : [0.5075159, 0.53895212, 1],
-                   'p_perp' : [0.68025501, 0.41761289, 1] },
+#                   vel_pert_kwargs={ 'p_par' : [0.5075159, 0.53895212, 1],
+#                   'p_perp' : [0.68025501, 0.41761289, 1] },
                    seed=seed)
 
 ## if necessary, transform back all data
