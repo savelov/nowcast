@@ -70,8 +70,8 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 9                # use at least 9 with DARTS
-n_lead_times        = 14
-n_ens_members       = 5
+n_leadtimes         = 14
+n_ens_members       = 10
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
@@ -133,18 +133,19 @@ UV = oflow_method(R)
 
 # Perform the nowcast
 nwc_method = stp.nowcasts.get_method(nwc_method)
-R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
-                   n_cascade_levels, kmperpixel=metadata["xpixelsize"]/1000,
-                   timestep=ds.timestep,  R_thr=metadata["threshold"],
-                   extrap_method=adv_method, decomp_method=decomp_method,
-                   bandpass_filter_method=bandpass_filter,
-                   noise_method=noise_method, noise_stddev_adj=adjust_noise,
-                   ar_order=ar_order, conditional=conditional,
-                   mask_method=mask_method,
-                   probmatching_method=prob_matching,
-#                   vel_pert_kwargs={ 'p_par' : [0.5075159, 0.53895212, 1],
-#                   'p_perp' : [0.68025501, 0.41761289, 1] },
-                   seed=seed)
+R_fct = nwc_method(R, UV, 
+    n_leadtimes,
+    n_ens_members,
+    n_cascade_levels=6,
+    R_thr=-10.0,
+    kmperpixel=metadata["xpixelsize"]/1000,
+    timestep=10,
+    decomp_method="fft",
+    bandpass_filter_method="gaussian",
+    noise_method="nonparametric",
+    vel_pert_method="bps",
+    mask_method="incremental",
+    seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -165,9 +166,9 @@ filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_
 timestep  = ds.timestep
 shape = (R_fct.shape[2],R_fct.shape[3])
 
-prob_array = nowcast_probability(n_lead_times, shape, R_fct)
+prob_array = nowcast_probability(n_leadtimes, shape, R_fct)
 export_initializer = stp.io.get_method('netcdf', 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_lead_times , shape, n_ens_members, metadata,
+exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
 stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
