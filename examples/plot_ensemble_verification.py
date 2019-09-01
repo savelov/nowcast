@@ -17,7 +17,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from pprint import pprint
-from pysteps import io, nowcasts, rcparams, verification
+from pysteps import io, nowcasts, rcparams, verification, motion
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing import ensemblestats
 from pysteps.utils import conversion, dimension, transformation
@@ -36,7 +36,7 @@ from pysteps.visualization import plot_precip_field
 date = datetime.strptime("201908172000", "%Y%m%d%H%M")
 data_source = rcparams.data_sources["gimet"]
 n_ens_members = 20
-n_leadtimes = 6
+n_leadtimes = 9
 seed = 24
 
 ###############################################################################
@@ -56,7 +56,7 @@ timestep = data_source["timestep"]
 
 # Find the radar files in the archive
 fns = io.find_by_date(
-    date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=2
+    date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=9
 )
 
 print( fns)
@@ -92,7 +92,9 @@ pprint(metadata)
 # We use the STEPS approach to produce a ensemble nowcast of precipitation fields.
 
 # Estimate the motion field
-V = dense_lucaskanade(R)
+#V = dense_lucaskanade(R)
+oflow_method = motion.get_method("DARTS")
+V = oflow_method(R)  # needs longer training sequence
 
 # Perform the ensemble nowcast with STEPS
 nowcast_method = nowcasts.get_method("steps")
@@ -103,7 +105,7 @@ R_f = nowcast_method(
     n_ens_members,
     n_cascade_levels=6,
     R_thr=-10.0,
-    kmperpixel=2.0,
+    kmperpixel=4.0,
     timestep=timestep,
     decomp_method="fft",
     bandpass_filter_method="gaussian",

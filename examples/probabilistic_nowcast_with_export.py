@@ -68,7 +68,7 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 5                # use at least 9 with DARTS
+n_prvs_times        = 9                # use at least 9 with DARTS
 n_lead_times        = 14
 n_ens_members       = 5
 n_cascade_levels    = 6
