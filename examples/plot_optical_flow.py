@@ -25,7 +25,7 @@ from pysteps.visualization import plot_precip_field, quiver
 # configured with the data_source paths pointing to data folders.
 
 # Selected case
-date = datetime.strptime("201908291900", "%Y%m%d%H%M")
+date = datetime.strptime("201908172000", "%Y%m%d%H%M")
 data_source = rcparams.data_sources["gimet"]
 
 ###############################################################################
