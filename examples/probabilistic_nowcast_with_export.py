@@ -52,7 +52,7 @@ ds = cfg.get_specifications(data_source)
 
 
 ## input data (copy/paste values from table above)
-archive_dir=ds.root_path+"/"+ds.path_fmt
+archive_dir=ds.root_path+"/"+max(os.listdir(ds.root_path))
 last_fname=max(os.listdir(archive_dir))
 print(last_fname)
 startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
@@ -60,7 +60,7 @@ startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
 print(startdate_str)
 
 ## methods
-oflow_method        = "vet"     # lucaskanade, darts, None
+oflow_method        = "darts"     # lucaskanade, darts, None
 nwc_method          = "steps"
 adv_method          = "semilagrangian"  # semilagrangian, eulerian
 noise_method        = "nonparametric"   # parametric, nonparametric, ssft
@@ -68,14 +68,14 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 2                # use at least 9 with DARTS
-n_lead_times        = 14
-n_ens_members       = 5
+n_prvs_times        = 9                # use at least 9 with DARTS
+n_leadtimes         = 14
+n_ens_members       = 10
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
 adjust_noise        = "auto"
-prob_matching       = True
+prob_matching       = "mean"
 precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
 conditional         = False
@@ -125,8 +125,8 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-R = np.ma.masked_invalid(R)
-R.data[R.mask] = np.nan
+# R = np.ma.masked_invalid(R)
+# R.data[R.mask] = np.nan
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)
@@ -141,18 +141,19 @@ R[~np.isfinite(R)] = metadata["zerovalue"]
 R.data[R.mask] = metadata["zerovalue"]
 
 nwc_method = stp.nowcasts.get_method(nwc_method)
-R_fct = nwc_method(R.data, UV, n_lead_times, n_ens_members,
-                   n_cascade_levels, kmperpixel=metadata["xpixelsize"]/1000,
-                   timestep=ds.timestep,  R_thr=metadata["threshold"],
-                   extrap_method=adv_method, decomp_method=decomp_method,
-                   bandpass_filter_method=bandpass_filter,
-                   noise_method=noise_method, noise_stddev_adj=adjust_noise,
-                   ar_order=ar_order, conditional=conditional,
-                    seed=seed, extrap_kwargs=extrap_kwargs)
-
-R_fct, _    = transformer(R_fct, metadata, inverse=True, zerovalue=-15)
-R, metadata = transformer(R, metadata, inverse=True, zerovalue=-15)
-
+R_fct = nwc_method(R, UV,
+    n_leadtimes,
+    n_ens_members,
+    n_cascade_levels=6,
+    R_thr=-10.0,
+    kmperpixel=metadata["xpixelsize"]/1000,
+    timestep=10,
+    decomp_method="fft",
+    bandpass_filter_method="gaussian",
+    noise_method="nonparametric",
+    vel_pert_method="bps",
+    mask_method="incremental",
+    seed=seed)
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
@@ -169,15 +170,14 @@ filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_
 timestep  = ds.timestep
 shape = (R_fct.shape[2], R_fct.shape[3])
 
-prob_array, no_data_mask = nowcast_probability(n_lead_times, shape, R_fct)
+prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
 
-export_initializer = stp.io.get_method('netcdf', 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_lead_times, shape, n_ens_members, metadata,
-                               product='precip_probability', incremental=None)
-
-for time_step in range(n_lead_times):
+for time_step in range(n_leadtimes):
     prob_array[time_step][R_zero_mask == 1] = 0.0
     prob_array[time_step][Rmask] = np.nan
 
+export_initializer = stp.io.get_method('netcdf', 'exporter')
+exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
+                              product='precip_probability', incremental=None)
 stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)

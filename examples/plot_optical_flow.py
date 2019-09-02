@@ -25,8 +25,8 @@ from pysteps.visualization import plot_precip_field, quiver
 # configured with the data_source paths pointing to data folders.
 
 # Selected case
-date = datetime.strptime("201505151630", "%Y%m%d%H%M")
-data_source = rcparams.data_sources["mch"]
+date = datetime.strptime("201908172000", "%Y%m%d%H%M")
+data_source = rcparams.data_sources["gimet"]
 
 ###############################################################################
 # Load the data from the archive
@@ -42,7 +42,7 @@ timestep = data_source["timestep"]
 
 # Find the input files from the archive
 fns = io.archive.find_by_date(
-    date, root_path, path_fmt, fn_pattern, fn_ext, timestep=5, num_prev_files=9
+    date, root_path, path_fmt, fn_pattern, fn_ext, timestep=10, num_prev_files=9
 )
 
 # Read the radar composites
