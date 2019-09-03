@@ -127,6 +127,7 @@ R, metadata = transformer(R, metadata)
 
 # R = np.ma.masked_invalid(R)
 # R.data[R.mask] = np.nan
+R[~np.isfinite(R)] = metadata["zerovalue"]
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)
@@ -136,9 +137,9 @@ UV = oflow_method(R)
 extrap_kwargs={}
 extrap_kwargs['allow_nonfinite_values'] = True
 
-## set NaN equal to zero
-R[~np.isfinite(R)] = metadata["zerovalue"]
-R.data[R.mask] = metadata["zerovalue"]
+# ## set NaN equal to zero
+# R[~np.isfinite(R)] = metadata["zerovalue"]
+# R.data[R.mask] = metadata["zerovalue"]
 
 nwc_method = stp.nowcasts.get_method(nwc_method)
 R_fct = nwc_method(R, UV,
@@ -173,7 +174,7 @@ shape = (R_fct.shape[2], R_fct.shape[3])
 prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
 
 for time_step in range(n_leadtimes):
-    prob_array[time_step][R_zero_mask == 1] = 0.0
+    # prob_array[time_step][R_zero_mask == 1] = 0.0
     prob_array[time_step][Rmask] = np.nan
 
 export_initializer = stp.io.get_method('netcdf', 'exporter')
