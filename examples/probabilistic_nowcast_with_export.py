@@ -52,15 +52,15 @@ ds = cfg.get_specifications(data_source)
 
 
 ## input data (copy/paste values from table above)
-archive_dir=ds.root_path+"/"+max(os.listdir(ds.root_path))
+archive_dir=ds.root_path+"/"+ds.path_fmt
 last_fname=max(os.listdir(archive_dir))
 print(last_fname)
-startdate_str= "201908172000" #last_fname[-18:-10]+last_fname[-9:-5]
+startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
 
 print(startdate_str)
 
 ## methods
-oflow_method        = "lucaskanade"     # lucaskanade, darts, None
+oflow_method        = "darts"     # lucaskanade, darts, None
 nwc_method          = "steps"
 adv_method          = "semilagrangian"  # semilagrangian, eulerian
 noise_method        = "nonparametric"   # parametric, nonparametric, ssft
@@ -68,7 +68,7 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 5                # use at least 9 with DARTS
+n_prvs_times        = 9                # use at least 9 with DARTS
 n_lead_times        = 14
 n_ens_members       = 5
 n_cascade_levels    = 6
@@ -139,7 +139,11 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                    seed=seed)
+                   mask_method=mask_method,
+                   probmatching_method=prob_matching,
+                   vel_pert_kwargs={ 'p_par' : [0.5075159, 0.53895212, 1],
+                   'p_perp' : [0.68025501, 0.41761289, 1] },
+                   seed=seed)
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
