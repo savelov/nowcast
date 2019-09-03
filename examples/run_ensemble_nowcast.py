@@ -13,6 +13,9 @@ import numpy as np
 import pickle
 import os
 
+import pyximport
+pyximport.install()
+
 import pysteps as stp
 import config as cfg
 
@@ -35,11 +38,11 @@ import config as cfg
 # Set parameters for this tutorial
 
 ## input data (copy/paste values from table above)
-startdate_str = "201810071540"
+startdate_str = "201908172000"
 data_source   = "gimet"
 
 ## methods
-oflow_method        = "lucaskanade"     # lucaskanade, darts, None
+oflow_method        = "darts"     # lucaskanade, darts, None
 nwc_method          = "steps"
 adv_method          = "semilagrangian"  # semilagrangian, eulerian
 noise_method        = "nonparametric"   # parametric, nonparametric, ssft
@@ -47,13 +50,13 @@ bandpass_filter     = "gaussian"
 decomp_method       = "fft"
 
 ## forecast parameters
-n_prvs_times        = 3                 # use at least 9 with DARTS
-n_lead_times        = 12
-n_ens_members       = 3
+n_prvs_times        = 10                # use at least 9 with DARTS
+n_lead_times        = 14
+n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
-adjust_noise        = True
+adjust_noise        = "auto"
 prob_matching       = True
 precip_mask         = True
 mask_method         = "incremental"     # sprog, obs or incremental
@@ -62,6 +65,10 @@ unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
+
+vel_pert_kwargs = dict()
+vel_pert_kwargs["p_par"] = [0.38550792, 0.62097167, -0.23937287]
+vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
 
 # Read-in the data
 print('Read the data...')
@@ -75,7 +82,7 @@ input_files = stp.io.find_by_date(startdate, ds["root_path"], ds["path_fmt"], ds
                                   ds["fn_ext"], ds["timestep"], n_prvs_times, 0)
 
 ## read radar field files
-importer = stp.io.get_method(ds.importer, type="importer")
+importer = stp.io.get_method(ds.importer, method_type="importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
 Rmask = np.isnan(R)
 
@@ -118,8 +125,8 @@ R_fct = nwc_method(R, UV, n_lead_times, n_ens_members,
                    bandpass_filter_method=bandpass_filter,
                    noise_method=noise_method, noise_stddev_adj=adjust_noise,
                    ar_order=ar_order, conditional=conditional,
-                   use_precip_mask=precip_mask, mask_method=mask_method,
-                   use_probmatching=prob_matching, seed=seed)
+                    seed=seed,  vel_pert_kwargs=vel_pert_kwargs)
+
 
 ## if necessary, transform back all data
 R_fct, _    = transformer(R_fct, metadata, inverse=True)
@@ -134,6 +141,9 @@ R, metadata = converter(R, metadata)
 R_fct, _    = reshaper(R_fct, metadata, inverse=True)
 R, metadata = reshaper(R, metadata, inverse=True)
 
+# compute the exceedance probability of 0.1 mm/h from the ensemble
+P_fct = stp.postprocessing.ensemblestats.excprob(R_fct[:, -1, :, :], 0.1, ignore_nan=True)
+
 ## plot the nowcast..
 R[Rmask] = np.nan # reapply radar mask
 stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
@@ -141,7 +151,7 @@ stp.plt.animate(R, nloops=2, timestamps=metadata["timestamps"],
                 UV=UV, motion_plot=cfg.motion_plot,
                 geodata=metadata, colorscale=cfg.colorscale,
                 plotanimation=True, savefig=True, path_outputs=cfg.path_outputs,
-                probmaps=True,probmap_thrs=[0.1,1.0])
+                probmaps=True, probmap_thrs=[0.1, 1.0])
 
 # Forecast verification
 print("Forecast verification...")
@@ -163,31 +173,11 @@ R_obs, metadata_obs = converter(R_obs, metadata_obs)
 R_obs[R_obs<r_threshold] = 0.0
 metadata_obs["threshold"] = r_threshold
 
-## compute the average continuous ranked probability score (CRPS)
-scores = np.zeros(n_lead_times)*np.nan
-for i in range(n_lead_times):
-    scores[i] = stp.vf.CRPS(R_fct[:,i,:,:].reshape((n_ens_members, -1)).transpose(),
-                            R_obs[i,:,:].flatten())
 
-## if already exists, load the figure object to append the new verification results
-filename = "%s/%s" % (cfg.path_outputs, "verif_ensemble_nwc_example")
-if os.path.exists("%s.dat" % filename):
-    ax = pickle.load(open("%s.dat" % filename, "rb"))
-    print("Figure object loaded: %s.dat" % filename)
-else:
-    fig, ax = plt.subplots()
 
-## plot the scores
-nplots = len(ax.lines)
-x = (np.arange(n_lead_times) + 1)*ds.timestep
-ax.plot(x, scores, color="C%i"%(nplots + 1), label = "run %02d" % (nplots + 1))
-ax.set_xlabel("Lead-time [min]")
-ax.set_ylabel("CRPS")
-plt.legend()
-
-## dump the figure object
-pickle.dump(plt.gca(), open("%s.dat" % filename, "wb"))
-print("Figure object saved: %s.dat" % filename)
-# remove the pickle object to plot a new figure
-
+reldiag = stp.verification.reldiag_init(r_threshold)
+stp.verification.reldiag_accum(reldiag, P_fct, R_obs[-1, :, :])
+fig, ax = plt.subplots()
+stp.verification.plot_reldiag(reldiag, ax)
+ax.set_title("Reliability diagram (+%i min)" % (n_lead_times * 10))
 plt.show()

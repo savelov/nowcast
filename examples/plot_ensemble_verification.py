@@ -56,9 +56,13 @@ importer_name = data_source["importer"]
 importer_kwargs = data_source["importer_kwargs"]
 timestep = data_source["timestep"]
 
+vel_pert_kwargs = dict()
+vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
+vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
+
 # Find the radar files in the archive
 fns = io.find_by_date(
-    date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=2
+    date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=10
 )
 
 print( fns)
@@ -94,7 +98,7 @@ pprint(metadata)
 # We use the STEPS approach to produce a ensemble nowcast of precipitation fields.
 
 # Estimate the motion field
-motion_method = get_method('vet') # vet or lucaskanade
+motion_method = get_method('darts') # vet or lucaskanade
 V = motion_method(R)
 
 # Perform the ensemble nowcast with STEPS
@@ -114,6 +118,7 @@ R_f = nowcast_method(
     vel_pert_method="bps",
     mask_method="incremental",
     seed=seed,
+    vel_pert_kwargs = vel_pert_kwargs
 )
 
 # Back-transform to rain rates

@@ -7,6 +7,10 @@ from datetime import datetime, timedelta
 import pickle
 import numpy as np
 from scipy import linalg as la
+
+import pyximport
+pyximport.install()
+
 from pysteps import io, motion
 from pysteps import rcparams
 from pysteps.utils import transformation
