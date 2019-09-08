@@ -84,6 +84,11 @@ transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
+vel_pert_kwargs = dict()
+vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
+vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
+
+
 # Read-in the data
 print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
@@ -154,7 +159,8 @@ R_fct = nwc_method(R, UV,
     noise_method="nonparametric",
     vel_pert_method="bps",
     mask_method="incremental",
-    seed=seed)
+    seed=seed,
+    vel_pert_kwargs=vel_pert_kwargs)
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
@@ -175,7 +181,7 @@ prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
 
 for time_step in range(n_leadtimes):
     # prob_array[time_step][R_zero_mask == 1] = 0.0
-    prob_array[time_step][Rmask] = np.nan
+    prob_array[time_step][Rmask] = -1
 
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
