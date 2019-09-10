@@ -45,6 +45,7 @@ field of correlated noise cN of shape (m, n).
 """
 
 import numpy as np
+from numpy.ma import MaskedArray
 from scipy import optimize
 from .. import utils
 
@@ -267,7 +268,9 @@ def initialize_nonparam_2d_fft_filter(X, **kwargs):
 
     # remove rain/no-rain discontinuity
     if rm_rdisc:
-        X[X > X.min()] -= X[X > X.min()].min() - X.min()
+        x_min = X[np.logical_not(np.isnan(X))].min() if isinstance(X, MaskedArray) else X.min()
+
+        X[X > x_min] -= X[X > x_min].min() - x_min
 
     # dims
     if len(X.shape) == 2:
@@ -280,7 +283,15 @@ def initialize_nonparam_2d_fft_filter(X, **kwargs):
         fft_shape = (X.shape[1], int(X.shape[2] / 2) + 1)
 
     # make sure non-rainy pixels are set to zero
-    X -= X.min(axis=(1, 2))[:, None, None]
+    if isinstance(X, MaskedArray):
+        x_mins = np.empty((X.shape[0],))
+        for i in range(X.shape[0]):
+            x_mins[i] = X[i][np.logical_not(np.isnan(X[i]))].min()
+
+    else:
+        x_mins = X.min(axis=(1, 2))
+
+    X -= x_mins[:, None, None]
 
     if win_type is not None:
         tapering = build_2D_tapering_function(field_shape, win_type)

@@ -16,6 +16,7 @@ import time
 
 import numpy as np
 import scipy.ndimage
+from numpy.ma import MaskedArray
 
 from pysteps import cascade
 from pysteps import extrapolation
@@ -42,7 +43,7 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
              mask_method="incremental", callback=None, return_output=True,
              seed=None, num_workers=1, fft_method="numpy", extrap_kwargs=None,
              filter_kwargs=None, noise_kwargs=None, vel_pert_kwargs=None,
-             mask_kwargs=None, measure_time=False):
+             mask_kwargs=None, measure_time=False, conserve_radar_mask=False):
     """Generate a nowcast ensemble by using the Short-Term Ensemble Prediction
     System (STEPS) method.
 
@@ -207,6 +208,10 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     measure_time : bool
       If set to True, measure, print and return the computation time.
 
+    conserve_radar_mask: bool
+      if set to True, radar mask (nan values) are conserved in the output. Values are
+      same as zero (no rain) if true
+
     Returns
     -------
     out : ndarray
@@ -246,7 +251,7 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     if mask_kwargs is None:
         mask_kwargs = dict()
 
-    if np.any(~np.isfinite(R)):
+    if np.any(~np.isfinite(R)) and not conserve_radar_mask:
         raise ValueError("R contains non-finite values")
 
     if np.any(~np.isfinite(V)):
@@ -310,6 +315,8 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     print("parallel threads:         %d" % num_workers)
     print("number of cascade levels: %d" % n_cascade_levels)
     print("order of the AR(p) model: %d" % ar_order)
+    if conserve_radar_mask:
+        R = np.ma.masked_invalid(R)
     if vel_pert_method == "bps":
         vp_par = vel_pert_kwargs.get("p_par", noise.motion.get_default_params_bps_par())
         vp_perp = vel_pert_kwargs.get("p_perp", noise.motion.get_default_params_bps_perp())
@@ -376,8 +383,12 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
         # get methods for perturbations
         init_noise, generate_noise = noise.get_method(noise_method)
 
+        # prepare R for perturbation generator
+        R_perp = R.data.copy()
+        # convert nans
+        R_perp[np.isnan(R_perp)] = -15
         # initialize the perturbation generator for the precipitation field
-        pp = init_noise(R, fft_method=fft, **noise_kwargs)
+        pp = init_noise(R_perp, fft_method=fft, **noise_kwargs)
 
         if noise_stddev_adj == "auto":
             print("Computing noise adjustment coefficients... ", end="")
@@ -407,7 +418,17 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     # compute the cascade decompositions of the input precipitation fields
     R_d = []
     for i in range(ar_order + 1):
-        R_ = decomp_method(R[i, :, :], filter, MASK=MASK_thr, fft_method=fft)
+        if conserve_radar_mask:
+            R_temp = R[i].data.copy()
+            R_temp[np.isnan(R_temp)] = -15
+        else:
+            R_temp = R[i, :, :]
+        R_ = decomp_method(R_temp, filter, MASK=MASK_thr, fft_method=fft)
+        if conserve_radar_mask:
+            for cl in range(R_['cascade_levels'].shape[0]):
+                R_['cascade_levels'][cl][R[i].mask] = np.nan
+                R_['means'][cl] = np.nanmean(R_['cascade_levels'][cl])
+                R_['stds'][cl] = np.nanstd(R_['cascade_levels'][cl])
         R_d.append(R_)
 
     # normalize the cascades and rearrange them into a four-dimensional array
@@ -418,7 +439,8 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     # compute lag-l temporal autocorrelation coefficients for each cascade level
     GAMMA = np.empty((n_cascade_levels, ar_order))
     for i in range(n_cascade_levels):
-        R_c_ = np.stack([R_c[i, j, :, :] for j in range(ar_order + 1)])
+        R_c_ = np.stack([R_c[i, j, :, :].copy() for j in range(ar_order + 1)])
+        R_c_[np.isnan(R_c_)] = -15
         GAMMA[i, :] = correlation.temporal_autocorrelation(R_c_, MASK=MASK_thr)
     R_c_ = None
 
@@ -496,7 +518,10 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
             n = mask_f * timestep / kmperpixel
             struct = scipy.ndimage.iterate_structure(struct, int((n - 1) / 2.))
             # initialize precip mask for each member
+            MASK_prec_mask = np.ma.masked_invalid(MASK_prec).mask
+            MASK_prec[np.isnan(MASK_prec)] = -15
             MASK_prec = _compute_incremental_mask(MASK_prec, struct, mask_rim)
+            MASK_prec[MASK_prec_mask] = np.nan
             MASK_prec = [MASK_prec.copy() for j in range(n_ens_members)]
 
     if noise_method is None:
@@ -575,27 +600,49 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
                 # apply the precipitation mask to prevent generation of new
                 # precipitation into areas where it was not originally
                 # observed
-                R_cmin = R_c_.min()
+                R_cmin = np.nanmin(R_c_)
                 if mask_method == "incremental":
                     R_c_ = R_cmin + (R_c_ - R_cmin) * MASK_prec[j]
                     MASK_prec_ = R_c_ > R_cmin
                 else:
                     MASK_prec_ = MASK_prec
 
+                # to support nan values
+                nan_mask = np.ma.masked_invalid(R_c_).mask
+
                 # Set to min value outside of mask
                 R_c_[~MASK_prec_] = R_cmin
+
+                # apply nan mask back
+                R_c_[nan_mask] = np.nan
 
             if probmatching_method == "cdf":
                 # adjust the CDF of the forecast to match the most recently
                 # observed precipitation field
-                R_c_ = probmatching.nonparam_match_empirical_cdf(R_c_, R)
+                R_c_mask = np.ma.masked_invalid(R_c_).mask
+                if conserve_radar_mask:
+                    R_c_temp = R_c_.copy()
+                    R_c_temp[np.isnan(R_c_temp)] = -15
+                    R_temp = R.data.copy()
+                    R_temp[np.isnan(R_temp)] = -15
+                else:
+                    R_c_temp = R_c_
+                    R_temp = R
+
+                R_c_ = probmatching.nonparam_match_empirical_cdf(R_c_temp, R_temp)
+                R_c_[R_c_mask] = np.nan
+
             elif probmatching_method == "mean":
                 MASK = R_c_ >= R_thr
                 mu_fct = np.mean(R_c_[MASK])
                 R_c_[MASK] = R_c_[MASK] - mu_fct + mu_0
 
             if mask_method == "incremental":
+                mask = np.ma.masked_invalid(R_c_).mask
+                R_c_[np.isnan(R_c_)] = -15
                 MASK_prec[j] = _compute_incremental_mask(R_c_ >= R_thr, struct, mask_rim)
+                MASK_prec[j][mask] = np.nan
+                R_c_[mask] = np.nan
 
             # compute the perturbed motion field
             if vel_pert_method is not None:
@@ -606,7 +653,8 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
             # advect the recomposed precipitation field to obtain the forecast
             # for time step t
             extrap_kwargs.update({"D_prev": D[j], "return_displacement": True})
-            R_f_, D_ = extrapolator_method(R_c_, V_, 1, **extrap_kwargs)
+            allow_nans = True if conserve_radar_mask else False
+            R_f_, D_ = extrapolator_method(R_c_, V_, 1, allow_nonfinite_values=allow_nans, **extrap_kwargs)
             D[j] = D_
             R_f_ = R_f_[0]
 

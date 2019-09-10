@@ -18,7 +18,6 @@ pysteps.
 More info: https://pysteps.github.io/
 """
 import datetime
-import matplotlib.pylab as plt
 import numpy as np
 import pickle
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
@@ -125,9 +124,9 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-# R = np.ma.masked_invalid(R)
-# R.data[R.mask] = np.nan
-R[~np.isfinite(R)] = metadata["zerovalue"]
+metadata["nanvalue"] = -20
+nan_mask = np.ma.masked_invalid(R).mask
+R[nan_mask] = metadata["nanvalue"] # to compute optical flow
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)
@@ -137,9 +136,8 @@ UV = oflow_method(R)
 extrap_kwargs={}
 extrap_kwargs['allow_nonfinite_values'] = True
 
-# ## set NaN equal to zero
-# R[~np.isfinite(R)] = metadata["zerovalue"]
-# R.data[R.mask] = metadata["zerovalue"]
+# apply nan mask back
+R[nan_mask] = np.nan
 
 nwc_method = stp.nowcasts.get_method(nwc_method)
 R_fct = nwc_method(R, UV,
@@ -154,7 +152,8 @@ R_fct = nwc_method(R, UV,
     noise_method="nonparametric",
     vel_pert_method="bps",
     mask_method="incremental",
-    seed=seed)
+    seed=seed,
+    conserve_radar_mask=True)
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
@@ -171,12 +170,10 @@ filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_
 timestep  = ds.timestep
 shape = (R_fct.shape[2], R_fct.shape[3])
 
-prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
+prob_array = nowcast_probability(n_leadtimes, shape, R_fct)
 
-for time_step in range(n_leadtimes):
-    # prob_array[time_step][R_zero_mask == 1] = 0.0
-    prob_array[time_step][Rmask] = np.nan
-
+# set -1 for nan
+prob_array[np.isnan(prob_array)] = -1
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
