@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys
-if sys.platform in ['win32', 'win64']:
-    import pyximport
-    pyximport.install()
+import pyximport
+pyximport.install()
 
 from tendo import singleton
 from glob import glob
@@ -85,6 +84,11 @@ transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
+vel_pert_kwargs = dict()
+vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
+vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
+
+
 # Read-in the data
 print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
@@ -99,7 +103,7 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
 ## read radar field files
 importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
-Rmask = np.isnan(R)
+Rmask = np.isnan(R[-1])
 
 # Prepare input files
 print("Prepare the data...")
@@ -114,6 +118,8 @@ R, metadata = converter(R, metadata)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
+R_zero_mask = np.zeros((R[-1].shape[0], R[-1].shape[1]))
+R_zero_mask[R[-1] == 0] = 1 #1 where no rain
 metadata["threshold"] = r_threshold
 
 ## convert the data
@@ -124,7 +130,8 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-## set NaN equal to zero
+# R = np.ma.masked_invalid(R)
+# R.data[R.mask] = np.nan
 R[~np.isfinite(R)] = metadata["zerovalue"]
 
 # Compute motion field
@@ -132,8 +139,15 @@ oflow_method = stp.motion.get_method(oflow_method)
 UV = oflow_method(R)
 
 # Perform the nowcast
+extrap_kwargs={}
+extrap_kwargs['allow_nonfinite_values'] = True
+
+# ## set NaN equal to zero
+# R[~np.isfinite(R)] = metadata["zerovalue"]
+# R.data[R.mask] = metadata["zerovalue"]
+
 nwc_method = stp.nowcasts.get_method(nwc_method)
-R_fct = nwc_method(R, UV, 
+R_fct = nwc_method(R, UV,
     n_leadtimes,
     n_ens_members,
     n_cascade_levels=6,
@@ -145,11 +159,8 @@ R_fct = nwc_method(R, UV,
     noise_method="nonparametric",
     vel_pert_method="bps",
     mask_method="incremental",
-    seed=seed)
-
-## if necessary, transform back all data
-R_fct, _    = transformer(R_fct, metadata, inverse=True)
-R, metadata = transformer(R, metadata, inverse=True)
+    seed=seed,
+    vel_pert_kwargs=vel_pert_kwargs)
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
@@ -164,9 +175,14 @@ R, metadata = reshaper(R, metadata, inverse=True)
 
 filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_str)
 timestep  = ds.timestep
-shape = (R_fct.shape[2],R_fct.shape[3])
+shape = (R_fct.shape[2], R_fct.shape[3])
 
-prob_array = nowcast_probability(n_leadtimes, shape, R_fct)
+prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
+
+for time_step in range(n_leadtimes):
+    # prob_array[time_step][R_zero_mask == 1] = 0.0
+    prob_array[time_step][Rmask] = -1
+
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
