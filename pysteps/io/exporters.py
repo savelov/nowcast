@@ -593,7 +593,7 @@ def _convert_proj4_to_grid_mapping(proj4str):
 
     params = {}
     # TODO(exporters): implement more projection types here
-    if d["proj"] == "stere":
+    if d["proj"] in  ["stere", "sterea"]:
         grid_mapping_var_name = "polar_stereographic"
         grid_mapping_name = "polar_stereographic"
         v = d["lon_0"] if d["lon_0"][-1] not in ["E", "W"] else d["lon_0"][:-1]
