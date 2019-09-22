@@ -70,7 +70,7 @@ decomp_method       = "fft"
 ## forecast parameters
 n_prvs_times        = 9                # use at least 9 with DARTS
 n_leadtimes         = 12
-n_ens_members       = 10
+n_ens_members       = 5
 n_cascade_levels    = 6
 ar_order            = 2
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
