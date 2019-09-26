@@ -97,7 +97,6 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
 ## read radar field files
 importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
-Rmask = np.isnan(R[-1])
 
 # Prepare input files
 print("Prepare the data...")
@@ -112,8 +111,6 @@ R, metadata = converter(R, metadata)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
-R_zero_mask = np.zeros((R[-1].shape[0], R[-1].shape[1]))
-R_zero_mask[R[-1] == 0] = 1 #1 where no rain
 metadata["threshold"] = r_threshold
 
 ## convert the data
@@ -124,9 +121,8 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-metadata["nanvalue"] = -20
 nan_mask = np.ma.masked_invalid(R).mask
-R[nan_mask] = metadata["nanvalue"] # to compute optical flow
+R[nan_mask] = metadata["zerovalue"] # to compute optical flow
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)

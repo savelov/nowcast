@@ -317,6 +317,7 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     print("order of the AR(p) model: %d" % ar_order)
     if conserve_radar_mask:
         R = np.ma.masked_invalid(R)
+        R.data[R.mask] = np.nan
     if vel_pert_method == "bps":
         vp_par = vel_pert_kwargs.get("p_par", noise.motion.get_default_params_bps_par())
         vp_perp = vel_pert_kwargs.get("p_perp", noise.motion.get_default_params_bps_perp())
@@ -365,8 +366,9 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     res = list()
 
     def f(R, i):
-        return extrapolator_method(R[i, :, :], V, ar_order - i,
+        return extrapolator_method(R[i, :, :].data, V, ar_order - i,
                                    "min",
+                                   allow_nonfinite_values=True,
                                    **extrap_kwargs)[-1]
 
     for i in range(ar_order):
@@ -383,12 +385,8 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
         # get methods for perturbations
         init_noise, generate_noise = noise.get_method(noise_method)
 
-        # prepare R for perturbation generator
-        R_perp = R.data.copy()
-        # convert nans
-        R_perp[np.isnan(R_perp)] = -15
         # initialize the perturbation generator for the precipitation field
-        pp = init_noise(R_perp, fft_method=fft, **noise_kwargs)
+        pp = init_noise(R, fft_method=fft, **noise_kwargs)
 
         if noise_stddev_adj == "auto":
             print("Computing noise adjustment coefficients... ", end="")
@@ -424,11 +422,6 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
         else:
             R_temp = R[i, :, :]
         R_ = decomp_method(R_temp, filter, MASK=MASK_thr, fft_method=fft)
-        if conserve_radar_mask:
-            for cl in range(R_['cascade_levels'].shape[0]):
-                R_['cascade_levels'][cl][R[i].mask] = np.nan
-                R_['means'][cl] = np.nanmean(R_['cascade_levels'][cl])
-                R_['stds'][cl] = np.nanstd(R_['cascade_levels'][cl])
         R_d.append(R_)
 
     # normalize the cascades and rearrange them into a four-dimensional array
@@ -439,8 +432,7 @@ def forecast(R, V, n_timesteps, n_ens_members=24, n_cascade_levels=6,
     # compute lag-l temporal autocorrelation coefficients for each cascade level
     GAMMA = np.empty((n_cascade_levels, ar_order))
     for i in range(n_cascade_levels):
-        R_c_ = np.stack([R_c[i, j, :, :].copy() for j in range(ar_order + 1)])
-        R_c_[np.isnan(R_c_)] = -15
+        R_c_ = np.stack([R_c[i, j, :, :] for j in range(ar_order + 1)])
         GAMMA[i, :] = correlation.temporal_autocorrelation(R_c_, MASK=MASK_thr)
     R_c_ = None
 
