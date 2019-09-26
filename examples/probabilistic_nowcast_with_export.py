@@ -83,6 +83,11 @@ transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
+vel_pert_kwargs = dict()
+vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
+vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
+
+
 # Read-in the data
 print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
@@ -149,7 +154,8 @@ R_fct = nwc_method(R, UV,
     vel_pert_method="bps",
     mask_method="incremental",
     seed=seed,
-    conserve_radar_mask=True)
+    conserve_radar_mask=True,
+    vel_pert_kwargs=vel_pert_kwargs)
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
