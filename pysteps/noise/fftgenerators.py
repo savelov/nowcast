@@ -45,6 +45,7 @@ field of correlated noise cN of shape (m, n).
 """
 
 import numpy as np
+from numpy.ma import MaskedArray
 from scipy import optimize
 from .. import utils
 
@@ -250,7 +251,7 @@ def initialize_nonparam_2d_fft_filter(X, **kwargs):
     """
     if len(X.shape) < 2 or len(X.shape) > 3:
         raise ValueError("the input is not two- or three-dimensional array")
-    if np.any(~np.isfinite(X)):
+    if np.any(~np.isfinite(X)) and not isinstance(X, MaskedArray):
         raise ValueError("X contains non-finite values")
 
     # defaults
@@ -267,7 +268,9 @@ def initialize_nonparam_2d_fft_filter(X, **kwargs):
 
     # remove rain/no-rain discontinuity
     if rm_rdisc:
-        X[X > X.min()] -= X[X > X.min()].min() - X.min()
+        x_min = np.nanmin(X)
+
+        X[X > x_min] -= X[X > x_min].min() - x_min
 
     # dims
     if len(X.shape) == 2:
@@ -280,12 +283,16 @@ def initialize_nonparam_2d_fft_filter(X, **kwargs):
         fft_shape = (X.shape[1], int(X.shape[2] / 2) + 1)
 
     # make sure non-rainy pixels are set to zero
-    X -= X.min(axis=(1, 2))[:, None, None]
+    X -= np.nanmin(X, axis=(1, 2))[:, None, None]
 
     if win_type is not None:
         tapering = build_2D_tapering_function(field_shape, win_type)
     else:
         tapering = np.ones(field_shape)
+
+    if isinstance(X, MaskedArray):
+        X = X.data
+        X[np.isnan(X)] = 0
 
     F = np.zeros(fft_shape, dtype=complex)
     for i in range(nr_fields):

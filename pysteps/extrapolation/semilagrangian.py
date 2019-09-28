@@ -16,6 +16,7 @@ import time
 
 import numpy as np
 import scipy.ndimage.interpolation as ip
+from numpy.ma import MaskedArray
 
 
 def extrapolate(precip, velocity, num_timesteps, outval=np.nan, xy_coords=None,
@@ -150,7 +151,6 @@ def extrapolate(precip, velocity, num_timesteps, outval=np.nan, xy_coords=None,
 
         XYW = xy_coords + D
         XYW = [XYW[1, :, :], XYW[0, :, :]]
-
         IW = ip.map_coordinates(precip, XYW, mode="constant", cval=outval,
                                 order=0, prefilter=False)
         R_e.append(np.reshape(IW, precip.shape))

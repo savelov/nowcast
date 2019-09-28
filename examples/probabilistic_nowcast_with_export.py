@@ -18,7 +18,6 @@ pysteps.
 More info: https://pysteps.github.io/
 """
 import datetime
-import matplotlib.pylab as plt
 import numpy as np
 import pickle
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
@@ -103,7 +102,6 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
 ## read radar field files
 importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
-Rmask = np.isnan(R[-1])
 
 # Prepare input files
 print("Prepare the data...")
@@ -118,8 +116,6 @@ R, metadata = converter(R, metadata)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
-R_zero_mask = np.zeros((R[-1].shape[0], R[-1].shape[1]))
-R_zero_mask[R[-1] == 0] = 1 #1 where no rain
 metadata["threshold"] = r_threshold
 
 ## convert the data
@@ -130,9 +126,8 @@ R, metadata = converter(R, metadata)
 transformer = stp.utils.get_method(transformation)
 R, metadata = transformer(R, metadata)
 
-# R = np.ma.masked_invalid(R)
-# R.data[R.mask] = np.nan
-R[~np.isfinite(R)] = metadata["zerovalue"]
+nan_mask = np.ma.masked_invalid(R).mask
+R[nan_mask] = metadata["zerovalue"] # to compute optical flow
 
 # Compute motion field
 oflow_method = stp.motion.get_method(oflow_method)
@@ -142,9 +137,8 @@ UV = oflow_method(R)
 extrap_kwargs={}
 extrap_kwargs['allow_nonfinite_values'] = True
 
-# ## set NaN equal to zero
-# R[~np.isfinite(R)] = metadata["zerovalue"]
-# R.data[R.mask] = metadata["zerovalue"]
+# apply nan mask back
+R[nan_mask] = np.nan
 
 nwc_method = stp.nowcasts.get_method(nwc_method)
 R_fct = nwc_method(R, UV,
@@ -160,6 +154,7 @@ R_fct = nwc_method(R, UV,
     vel_pert_method="bps",
     mask_method="incremental",
     seed=seed,
+    conserve_radar_mask=True,
     vel_pert_kwargs=vel_pert_kwargs)
 
 ## convert all data to mm/h
@@ -177,12 +172,10 @@ filename = "%s/%s_%s.ncf" % (cfg.path_outputs, "probab_ensemble_nwc", startdate_
 timestep  = ds.timestep
 shape = (R_fct.shape[2], R_fct.shape[3])
 
-prob_array, no_data_mask = nowcast_probability(n_leadtimes, shape, R_fct)
+prob_array = nowcast_probability(n_leadtimes, shape, R_fct)
 
-for time_step in range(n_leadtimes):
-    # prob_array[time_step][R_zero_mask == 1] = 0.0
-    prob_array[time_step][Rmask] = -1
-
+# set -1 for nan
+prob_array[np.isnan(prob_array)] = -1
 export_initializer = stp.io.get_method('netcdf', 'exporter')
 exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
