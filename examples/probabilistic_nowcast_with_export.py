@@ -84,8 +84,8 @@ adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
 
 vel_pert_kwargs = dict()
-vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
-vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
+vel_pert_kwargs["p_par"] = [ 0.27159242, 0.80105668,  0.05984754]
+vel_pert_kwargs["p_perp"] =  [ 2.42090851,  0.32323032, -3.66120619]
 
 
 # Read-in the data
