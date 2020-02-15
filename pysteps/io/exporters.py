@@ -304,15 +304,15 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     h, w = shape
 
-    if product != 'precip_probability':
-        ncf.createDimension("ens_number", size=n_ens_members)
+    # if product != 'precip_probability':
+    #     ncf.createDimension("ens_number", size=n_ens_members)
     ncf.createDimension("time", size=n_timesteps)
     ncf.createDimension("y", size=h)
     ncf.createDimension("x", size=w)
 
     # necessary settings for probability nowcasting
+    ncf.datetime = str(startdate)
     if product == 'precip_probability':
-        ncf.datetime = str(startdate)
         #TODO: Add this metadata unit percent in the source
         metadata["unit"] = "percent"
 
@@ -403,13 +403,13 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
         for i in grid_mapping_params.items():
             var_gm.setncattr(i[0], i[1])
 
-    if product != 'precip_probability':
-        var_ens_num = ncf.createVariable("ens_number", np.int,
-                                         dimensions=("ens_number",))
-        if incremental != "member":
-            var_ens_num[:] = list(range(1, n_ens_members+1))
-        var_ens_num.long_name = "ensemble member"
-        var_ens_num.units = ""
+    # if product != 'precip_probability':
+    #     var_ens_num = ncf.createVariable("ens_number", np.int,
+    #                                      dimensions=("ens_number",))
+    #     if incremental != "member":
+    #         var_ens_num[:] = list(range(1, n_ens_members+1))
+    #     var_ens_num.long_name = "ensemble member"
+    #     var_ens_num.units = ""
 
     var_time = ncf.createVariable("time", np.int, dimensions=("time",))
     if incremental != "timestep":
@@ -423,7 +423,7 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_time.units = "minutes since %s" % startdate_str if product == 'precip_probability' \
         else "seconds since %s" % startdate_str
 
-    dimensions = ("time", "y", "x") if product == 'precip_probability' else ("ens_number", "time", "y", "x")
+    dimensions = ("time", "y", "x")
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=dimensions,
@@ -438,8 +438,8 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     exporter["method"] = "netcdf"
     exporter["ncfile"] = ncf
     exporter["var_F"] = var_F
-    if product != 'precip_probability':
-        exporter["var_ens_num"] = var_ens_num
+    # if product != 'precip_probability':
+    #     exporter["var_ens_num"] = var_ens_num
     exporter["var_time"] = var_time
     exporter["var_name"] = var_name
     exporter["startdate"] = startdate
@@ -489,9 +489,7 @@ def export_forecast_dataset(F, exporter, mask=None):
             "exporters but it is not installed")
 
     if exporter["incremental"] is None:
-        shp = (exporter["num_timesteps"], exporter["shape"][0], exporter["shape"][1]) if \
-            exporter['var_name'] == 'precip_probability' else (exporter["num_ens_members"], exporter["num_timesteps"],
-                                                               exporter["shape"][0], exporter["shape"][1])
+        shp = (exporter["num_timesteps"], exporter["shape"][0], exporter["shape"][1])
         if F.shape != shp:
             raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
     elif exporter["incremental"] == "timestep":
