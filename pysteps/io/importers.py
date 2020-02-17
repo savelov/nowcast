@@ -1247,7 +1247,7 @@ def _read_tif_geodata(file_path=''):
         file_handler = rasterio.open(file_path)
         proj_data = file_handler.crs.data
         print(proj_data)
-        proj_data['proj'] = 'stere'
+        # proj_data['proj'] = 'stere'
         projdef += '+proj={0} +lon_0={1} +lat_0={2} +x_0={3} +y_0={4} +ellps={5}'.format(proj_data['proj'],
                                                                                          proj_data['lon_0'],
                                                                                          proj_data['lat_0'],
