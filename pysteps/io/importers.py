@@ -80,6 +80,8 @@ Available Importers
 
 
 import gzip
+
+import rasterio
 from matplotlib.pyplot import imread
 import numpy as np
 import os
@@ -1184,7 +1186,7 @@ def import_gimet_geotiff(filename, **kwargs):
 
 def read_tif_gimet(filename):
     metadata = {}
-    geodata = _read_tif_geodata()
+    geodata = _read_tif_geodata(filename)
 
     B = PIL.Image.open(filename)
     B = np.array(B, dtype=int)
@@ -1211,35 +1213,59 @@ def read_tif_gimet(filename):
 
     return R, geodata, metadata
 
-def _read_tif_geodata():
+def _read_tif_geodata(file_path=''):
     geodata = {}
-
     projdef = ""
-    # These are all hard-coded because the projection definition is missing from the
-    # gif files.
-    projdef += "+proj=stere"
-    projdef += " +lon_0=42"
-    projdef += " +lat_0=54"
-    #projdef += " +k_0=1"
-    projdef += " +x_0=0"
-    projdef += " +y_0=0"
-    projdef += " +ellps=bessel"
-    #projdef += " +towgs84=674.374,15.056,405.346,0,0,0,0"
-    #projdef += " +units=m"
-    #projdef += " +no_defs"
 
-    geodata["projection"] = projdef
+    if file_path == '':
+        # These are all hard-coded because the projection definition is missing from the
+        # gif files.
+        projdef += "+proj=stere"
+        projdef += " +lon_0=42"
+        projdef += " +lat_0=54"
+        #projdef += " +k_0=1"
+        projdef += " +x_0=0"
+        projdef += " +y_0=0"
+        projdef += " +ellps=bessel"
+        #projdef += " +towgs84=674.374,15.056,405.346,0,0,0,0"
+        #projdef += " +units=m"
+        #projdef += " +no_defs"
 
-    mapsize = 1400
+        mapsize = 1400
 
-    geodata["x1"] = -mapsize*1000
-    geodata["y1"] = -mapsize*1000
-    geodata["x2"] = mapsize*1000
-    geodata["y2"] = mapsize*1000
+        geodata["x1"] = -mapsize*1000
+        geodata["y1"] = -mapsize*1000
+        geodata["x2"] = mapsize*1000
+        geodata["y2"] = mapsize*1000
 
-    geodata["xpixelsize"] = 4000
-    geodata["ypixelsize"] = 4000
+        geodata["xpixelsize"] = 4000
+        geodata["ypixelsize"] = 4000
 
-    geodata["yorigin"] = "upper"
+        geodata["yorigin"] = "upper"
+
+    else:
+        file_handler = rasterio.open(file_path)
+        proj_data = file_handler.crs.data
+        print(proj_data)
+        # proj_data['proj'] = 'stere'
+        projdef += '+proj={0} +lon_0={1} +lat_0={2} +x_0={3} +y_0={4} +ellps={5}'.format(proj_data['proj'],
+                                                                                         proj_data['lon_0'],
+                                                                                         proj_data['lat_0'],
+                                                                                         proj_data['x_0'],
+                                                                                         proj_data['y_0'],
+                                                                                         proj_data['ellps'])
+
+        geodata["projection"] = projdef
+
+        # bounds
+        geodata["x1"] = file_handler.bounds.left
+        geodata["y1"] = file_handler.bounds.bottom
+        geodata["x2"] = file_handler.bounds.right
+        geodata["y2"] = file_handler.bounds.top
+
+        geodata["xpixelsize"] = file_handler.res[0]
+        geodata["ypixelsize"] = file_handler.res[1]
+
+        geodata["yorigin"] = "upper"
 
     return geodata

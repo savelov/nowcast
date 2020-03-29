@@ -69,9 +69,9 @@
 			}
         },
         "gimet": {
-            "root_path": "/home/ubuntu/pysteps-data/radar/gimet",
+            "root_path": "/home/ubuntu/pysteps-data/radar/gimet-1km",
             "path_fmt": "%Y%m%d",
-            "fn_pattern": "bufr_dbz1_%Y%m%d_%H%M",
+            "fn_pattern": "gimet_%Y%m%d_%H%M",
             "fn_ext": "tiff",
             "importer": "gimet_tiff",
             "timestep": 10,

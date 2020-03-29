@@ -304,15 +304,15 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     h, w = shape
 
-    if product != 'precip_probability':
-        ncf.createDimension("ens_number", size=n_ens_members)
+    # if product != 'precip_probability':
+    #     ncf.createDimension("ens_number", size=n_ens_members)
     ncf.createDimension("time", size=n_timesteps)
     ncf.createDimension("y", size=h)
     ncf.createDimension("x", size=w)
 
     # necessary settings for probability nowcasting
+    ncf.datetime = str(startdate)
     if product == 'precip_probability':
-        ncf.datetime = str(startdate)
         #TODO: Add this metadata unit percent in the source
         metadata["unit"] = "percent"
 
@@ -403,13 +403,13 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
         for i in grid_mapping_params.items():
             var_gm.setncattr(i[0], i[1])
 
-    if product != 'precip_probability':
-        var_ens_num = ncf.createVariable("ens_number", np.int,
-                                         dimensions=("ens_number",))
-        if incremental != "member":
-            var_ens_num[:] = list(range(1, n_ens_members+1))
-        var_ens_num.long_name = "ensemble member"
-        var_ens_num.units = ""
+    # if product != 'precip_probability':
+    #     var_ens_num = ncf.createVariable("ens_number", np.int,
+    #                                      dimensions=("ens_number",))
+    #     if incremental != "member":
+    #         var_ens_num[:] = list(range(1, n_ens_members+1))
+    #     var_ens_num.long_name = "ensemble member"
+    #     var_ens_num.units = ""
 
     var_time = ncf.createVariable("time", np.int, dimensions=("time",))
     if incremental != "timestep":
@@ -423,7 +423,7 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     var_time.units = "minutes since %s" % startdate_str if product == 'precip_probability' \
         else "seconds since %s" % startdate_str
 
-    dimensions = ("time", "y", "x") if product == 'precip_probability' else ("ens_number", "time", "y", "x")
+    dimensions = ("time", "y", "x")
 
     var_F = ncf.createVariable(var_name, np.float32,
                                dimensions=dimensions,
@@ -438,8 +438,8 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
     exporter["method"] = "netcdf"
     exporter["ncfile"] = ncf
     exporter["var_F"] = var_F
-    if product != 'precip_probability':
-        exporter["var_ens_num"] = var_ens_num
+    # if product != 'precip_probability':
+    #     exporter["var_ens_num"] = var_ens_num
     exporter["var_time"] = var_time
     exporter["var_name"] = var_name
     exporter["startdate"] = startdate
@@ -489,9 +489,7 @@ def export_forecast_dataset(F, exporter, mask=None):
             "exporters but it is not installed")
 
     if exporter["incremental"] is None:
-        shp = (exporter["num_timesteps"], exporter["shape"][0], exporter["shape"][1]) if \
-            exporter['var_name'] == 'precip_probability' else (exporter["num_ens_members"], exporter["num_timesteps"],
-                                                               exporter["shape"][0], exporter["shape"][1])
+        shp = (exporter["num_timesteps"], exporter["shape"][0], exporter["shape"][1])
         if F.shape != shp:
             raise ValueError("F has invalid shape: %s != %s" % (str(F.shape),str(shp)))
     elif exporter["incremental"] == "timestep":
@@ -598,6 +596,19 @@ def _convert_proj4_to_grid_mapping(proj4str):
         grid_mapping_name = "polar_stereographic"
         v = d["lon_0"] if d["lon_0"][-1] not in ["E", "W"] else d["lon_0"][:-1]
         params["straight_vertical_longitude_from_pole"] = float(v)
+        v = d["lat_0"] if d["lat_0"][-1] not in ["N", "S"] else d["lat_0"][:-1]
+        params["latitude_of_projection_origin"] = float(v)
+        if "lat_ts" in list(d.keys()):
+            params["standard_parallel"] = float(d["lat_ts"])
+        elif "k_0" in list(d.keys()):
+            params["scale_factor_at_projection_origin"] = float(d["k_0"])
+        params["false_easting"] = float(d["x_0"])
+        params["false_northing"] = float(d["y_0"])
+    elif d["proj"] == "sterea":
+        grid_mapping_var_name = "oblique_stereographic"
+        grid_mapping_name = "oblique_stereographic"
+        v = d["lon_0"] if d["lon_0"][-1] not in ["E", "W"] else d["lon_0"][:-1]
+        params["longitude_of_projection_origin"] = float(v)
         v = d["lat_0"] if d["lat_0"][-1] not in ["N", "S"] else d["lat_0"][:-1]
         params["latitude_of_projection_origin"] = float(v)
         if "lat_ts" in list(d.keys()):
