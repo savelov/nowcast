@@ -413,20 +413,16 @@ def initialize_forecast_exporter_netcdf(filename, startdate, timestep,
 
     var_time = ncf.createVariable("time", np.int, dimensions=("time",))
     if incremental != "timestep":
-        if product == 'precip_probability':
-            var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
-        else:
-            var_time[:] = [i*timestep*60 for i in range(1, n_timesteps+1)]
+        var_time[:] = [i*timestep for i in range(1, n_timesteps+1)]
 
     var_time.long_name = "forecast time"
     startdate_str = datetime.strftime(startdate, "%Y-%m-%d %H:%M:%S")
-    var_time.units = "minutes since %s" % startdate_str if product == 'precip_probability' \
-        else "seconds since %s" % startdate_str
-
-    dimensions = ("time", "y", "x")
+    # var_time.units = "minutes since %s" % startdate_str if product == 'precip_probability' \
+    #     else "seconds since %s" % startdate_str
+    var_time.units = "minutes since %s" % startdate_str
 
     var_F = ncf.createVariable(var_name, np.float32,
-                               dimensions=dimensions,
+                               dimensions=("time", "y", "x"),
                                zlib=True, complevel=9)
 
     if var_standard_name is not None:
