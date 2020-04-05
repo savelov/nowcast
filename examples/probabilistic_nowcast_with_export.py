@@ -177,7 +177,7 @@ prob_array = nowcast_probability(n_leadtimes, shape, R_fct)
 # set -1 for nan
 prob_array[np.isnan(prob_array)] = -1
 export_initializer = stp.io.get_method('netcdf', 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_leadtimes , shape, n_ens_members, metadata,
+exporter = export_initializer(filename, startdate, timestep, n_leadtimes, shape, n_ens_members, metadata,
                               product='precip_probability', incremental=None)
 stp.io.export_forecast_dataset(prob_array, exporter)
 stp.io.close_forecast_file(exporter)
