@@ -17,7 +17,7 @@ from pysteps import extrapolation
 
 def forecast(precip, velocity, num_timesteps,
              extrap_method="semilagrangian", extrap_kwargs=None,
-             measure_time=False):
+             measure_time=False, allow_nans=False):
     """Generate a nowcast by applying a simple advection-based extrapolation to
     the given precipitation field.
 
@@ -73,6 +73,7 @@ def forecast(precip, velocity, num_timesteps,
     extrapolation_method = extrapolation.get_method(extrap_method)
 
     precip_forecast = extrapolation_method(precip, velocity, num_timesteps,
+                                           allow_nonfinite_values=allow_nans,
                                            **extrap_kwargs)
 
     if measure_time:

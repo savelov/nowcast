@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 import os, sys
 import pyximport
+
+from pysteps_custom_utils.utils import convert_dbz_to_mm
+
 pyximport.install()
 
 from tendo import singleton
@@ -68,7 +71,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 3                # use at least 9 with DARTS
-n_leadtimes         = 5
+n_leadtimes         = 40
 n_ens_members       = 3
 n_cascade_levels    = 8
 ar_order            = 2
@@ -82,6 +85,7 @@ unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 seed                = 42                # for reproducibility
+output_time_step = 1
 
 vel_pert_kwargs = dict()
 vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
@@ -91,7 +95,7 @@ vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
 # Read-in the data
 print('Read the data...', startdate_str)
 startdate  = datetime.datetime.strptime(startdate_str, "%Y%m%d%H%M")
-
+# startdate = datetime.datetime(2019, 10, 7, 18, 40)
 ## import data specifications
 ds = cfg.get_specifications(data_source)
 
@@ -102,6 +106,9 @@ input_files = stp.io.find_by_date(startdate, ds.root_path, ds.path_fmt, ds.fn_pa
 ## read radar field files
 importer = stp.io.get_method(ds.importer, "importer")
 R, _, metadata = stp.io.read_timeseries(input_files, importer, **ds.importer_kwargs)
+
+# Preprocess the data
+# R = convert_dbz_to_mm(R)
 
 # Prepare input files
 print("Prepare the data...")
@@ -133,6 +140,10 @@ R[nan_mask] = metadata["zerovalue"] # to compute optical flow
 oflow_method = stp.motion.get_method(oflow_method)
 UV = oflow_method(R)
 
+# Change motion field according to timeStep
+if output_time_step < 10:
+    UV = UV - (UV/10)*(10-output_time_step)
+
 # Perform the nowcast
 extrap_kwargs={}
 extrap_kwargs['allow_nonfinite_values'] = True
@@ -140,22 +151,26 @@ extrap_kwargs['allow_nonfinite_values'] = True
 # apply nan mask back
 R[nan_mask] = np.nan
 
-nwc_method = stp.nowcasts.get_method(nwc_method)
-R_fct = nwc_method(R[-3:, :, :], UV,
-    n_leadtimes,
-    n_ens_members,
-    n_cascade_levels=8,
-    R_thr=-10.0,
-    kmperpixel=metadata["xpixelsize"]/1000,
-    timestep=5,
-    decomp_method="fft",
-    bandpass_filter_method="gaussian",
-    noise_method="nonparametric",
-    vel_pert_method="bps",
-    mask_method="incremental",
-    seed=seed,
-    conserve_radar_mask=True,
-    vel_pert_kwargs=vel_pert_kwargs)[-1, :, :]
+extrapolate = stp.nowcasts.get_method("extrapolation")
+R_fct = extrapolate(R[-1], UV, n_leadtimes, allow_nans=True)
+
+
+# nwc_method = stp.nowcasts.get_method(nwc_method)
+# R_fct = nwc_method(R[-3:, :, :], UV,
+#     n_leadtimes,
+#     n_ens_members,
+#     n_cascade_levels=8,
+#     R_thr=-10.0,
+#     kmperpixel=metadata["xpixelsize"]/1000,
+#     timestep=output_time_step,
+#     decomp_method="fft",
+#     bandpass_filter_method="gaussian",
+#     noise_method="nonparametric",
+#     vel_pert_method="bps",
+#     mask_method="incremental",
+#     seed=seed,
+#     conserve_radar_mask=True,
+#     vel_pert_kwargs=vel_pert_kwargs)[-1, :, :]
 
 ## convert all data to mm/h
 converter   = stp.utils.get_method("mm/h")
@@ -177,7 +192,7 @@ shape = (R_fct.shape[1], R_fct.shape[2])
 # # set -1 for nan
 R_fct[np.isnan(R_fct)] = -1
 export_initializer = stp.io.get_method('netcdf', 'exporter')
-exporter = export_initializer(filename, startdate, timestep, n_leadtimes, shape, 1, metadata,
+exporter = export_initializer(filename, startdate, output_time_step, n_leadtimes, shape, 1, metadata,
                               incremental=None)
 stp.io.export_forecast_dataset(R_fct, exporter)
 stp.io.close_forecast_file(exporter)
