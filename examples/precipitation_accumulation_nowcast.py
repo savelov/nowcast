@@ -68,7 +68,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 6                # use at least 9 with DARTS
-n_leadtimes         = 6
+n_leadtimes         = 6                # use 6 for one hour extrapolation and 12 for 2 hours extrapolation
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
 unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
@@ -166,7 +166,7 @@ for i in range(R_all.shape[0]):
 print(R_computed.shape)
 
 # compute sum at one hour
-R_final = np.zeros((R.shape[0], R.shape[1], R.shape[2]))
+R_final = np.zeros((R_all.shape[0]-6, R.shape[1], R.shape[2]))
 for i in range(R_final.shape[0]):
     if i == 0:
         R_final[i] = np.sum(R_computed[:6], axis=0)
