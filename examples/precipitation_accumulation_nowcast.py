@@ -4,7 +4,7 @@ import os, sys
 import pyximport
 import copy
 
-from pysteps_custom_utils.utils import convert_dbz_to_mm
+#from pysteps_custom_utils.utils import convert_dbz_to_mm
 
 pyximport.install()
 

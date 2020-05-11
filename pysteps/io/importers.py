@@ -115,7 +115,7 @@ try:
 except ImportError:
     netcdf4_imported = False
 try:
-    import PIL
+    import PIL.Image
 
     pil_imported = True
 except ImportError:
