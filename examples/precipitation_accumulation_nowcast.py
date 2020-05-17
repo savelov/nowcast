@@ -110,8 +110,8 @@ metadata["threshold"] = r_threshold
 # R, metadata = converter(R, metadata)
 
 ## transform the data
-transformer = stp.utils.get_method(transformation)
-R, metadata = transformer(R, metadata)
+# transformer = stp.utils.get_method(transformation)
+# R, metadata = transformer(R, metadata)
 
 nan_mask = np.ma.masked_invalid(R).mask
 R[nan_mask] = metadata["zerovalue"] # to compute optical flow
@@ -139,8 +139,8 @@ R_all_ref = copy.deepcopy(R_all)
 # R_all = np.ma.masked_less_equal(R_all, 0)
 
 # per minute precipitation
-R_all[R_all<0] = 0
-R_all = R_all/60
+# R_all[R_all<0] = 0
+# R_all = R_all/60
 slow_UV = UV - (UV/10)*(10-output_time_step)    # one minute motion vectors
 
 R_computed = np.zeros((R_all.shape[0], R.shape[1], R.shape[2]))
@@ -150,14 +150,16 @@ ten_min_sum = np.zeros((R_all.shape[1], R_all.shape[2]))
 # compute sum at 10 min timestep
 for i in range(R_all.shape[0]):
     if i == 0:
-        R_computed[i] = R_all[i]
+        R_computed[i] = R_all[i]/60
         ten_min_sum = R_computed[i]
     else:
+        prev_min_nowcast = R_all[i]
         for j in range(10):
-            one_min_nowcast = extrapolate(ten_min_sum, slow_UV, 1, allow_nans=True)
-            ten_min_sum += one_min_nowcast[0]
+            one_min_nowcast = extrapolate(prev_min_nowcast, slow_UV, 1, allow_nans=True)
+            ten_min_sum += one_min_nowcast[0]/60
+            prev_min_nowcast = one_min_nowcast[0]
         R_computed[i] = ten_min_sum
-        ten_min_sum = R_all[i]
+        ten_min_sum = R_all[i]/60
 
 print(R_computed.shape)
 
