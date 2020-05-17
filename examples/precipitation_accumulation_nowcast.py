@@ -60,11 +60,6 @@ print(startdate_str)
 
 ## methods
 oflow_method        = "lucaskanade"     # lucaskanade, darts, None
-nwc_method          = "steps"
-adv_method          = "semilagrangian"  # semilagrangian, eulerian
-noise_method        = "nonparametric"   # parametric, nonparametric, ssft
-bandpass_filter     = "gaussian"
-decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 6                # use at least 9 with DARTS
@@ -74,11 +69,8 @@ unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
 output_time_step = 1
-
-vel_pert_kwargs = dict()
-vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
-vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
-
+a = 316.0
+b = 1.5
 
 # Read-in the data
 print('Read the data...', startdate_str)
@@ -107,7 +99,7 @@ R, metadata = reshaper(R, metadata, method="pad")
 
 ## if necessary, convert to rain rates [mm/h]
 converter = stp.utils.get_method("mm/h")
-R, metadata = converter(R, metadata)
+R, metadata = converter(R, metadata, a=a, b=b)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
@@ -143,7 +135,11 @@ R_all = np.append(R, R_calc, axis=0)
 
 R_all_ref = copy.deepcopy(R_all)
 
+# zeros_mask = np.ma.masked_less_equal(R_all, 0).mask
+# R_all = np.ma.masked_less_equal(R_all, 0)
+
 # per minute precipitation
+R_all[R_all<0] = 0
 R_all = R_all/60
 slow_UV = UV - (UV/10)*(10-output_time_step)    # one minute motion vectors
 
