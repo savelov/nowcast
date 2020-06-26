@@ -80,6 +80,8 @@ vel_pert_kwargs = dict()
 vel_pert_kwargs["p_par"] = [ 0.38550792, 0.62097167, -0.23937287]
 vel_pert_kwargs["p_perp"] = [0.2240485, 0.68900218, 0.24242502]
 
+a = 200.0
+b = 1.6
 
 # Read-in the data
 print('Read the data...', startdate_str)
@@ -108,7 +110,7 @@ R, metadata = reshaper(R, metadata, method="pad")
 
 ## if necessary, convert to rain rates [mm/h]
 converter = stp.utils.get_method("mm/h")
-R, metadata = converter(R, metadata)
+R, metadata = converter(R, metadata, a=a, b=b)
 
 ## threshold the data
 R[R<r_threshold] = 0.0
