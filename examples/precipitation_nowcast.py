@@ -54,7 +54,8 @@ ds = cfg.get_specifications(data_source)
 
 
 ## input data (copy/paste values from table above)
-archive_dir=ds.root_path+"/"+max(os.listdir(ds.root_path))
+archive_dir=ds.root_path
+#+"/"+max(os.listdir(ds.root_path))
 last_fname=max(os.listdir(archive_dir))
 print(last_fname)
 startdate_str=last_fname[-18:-10]+last_fname[-9:-5]
