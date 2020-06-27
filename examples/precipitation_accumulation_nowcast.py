@@ -5,6 +5,7 @@ import pyximport
 import copy
 
 import pysteps.utils
+from pysteps import nowcasts
 
 pyximport.install()
 
@@ -69,7 +70,7 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 6                # use at least 9 with DARTS
-n_leadtimes         = 6                # use 6 for one hour extrapolation and 12 for 2 hours extrapolation
+n_leadtimes         = 12                # use 6 for one hour extrapolation and 12 for 2 hours extrapolation
 r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
 unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
@@ -136,11 +137,25 @@ extrap_kwargs={}
 extrap_kwargs['allow_nonfinite_values'] = True
 
 # apply nan mask back
-R[nan_mask] = np.nan
+#R[nan_mask] = np.nan
 
 # extrapolate at ten minute time step
 extrapolate = stp.nowcasts.get_method("extrapolation")
-R_calc = extrapolate(R[-1], UV, n_leadtimes, allow_nans=True)
+#R_calc = extrapolate(R[-1], UV, n_leadtimes, allow_nans=True)
+
+
+# The S-PROG nowcast instead of simple extrapolation
+nowcast_method = nowcasts.get_method("sprog")
+R_calc = nowcast_method(
+            R[-3:, :, :],
+            UV,
+            n_leadtimes,
+            n_cascade_levels=8,
+            R_thr=-10.0,
+            decomp_method="fft",
+            bandpass_filter_method="gaussian",
+            probmatching_method="mean",
+            )
 
 R_all = np.append(R, R_calc, axis=0)
 
