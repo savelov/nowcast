@@ -144,18 +144,23 @@ extrapolate = stp.nowcasts.get_method("extrapolation")
 #R_calc = extrapolate(R[-1], UV, n_leadtimes, allow_nans=True)
 
 
-# The S-PROG nowcast instead of simple extrapolation
-nowcast_method = nowcasts.get_method("sprog")
+nowcast_method = nowcasts.get_method("steps")
 R_calc = nowcast_method(
             R[-3:, :, :],
-            UV,
-            n_leadtimes,
-            n_cascade_levels=8,
-            R_thr=-10.0,
-            decomp_method="fft",
-            bandpass_filter_method="gaussian",
-            probmatching_method="mean",
-            )
+                UV,
+                    n_leadtimes,
+                        n_ens_members,
+                            n_cascade_levels=6,
+                                R_thr=-10.0,
+                                    kmperpixel=2.0,
+                                        timestep=timestep,
+                                            decomp_method="fft",
+                                                bandpass_filter_method="gaussian",
+                                                    noise_method="nonparametric",
+                                                        vel_pert_method="bps",
+                                                            mask_method="incremental",
+                                                                seed=seed,
+                                                                )
 
 R_all = np.append(R, R_calc, axis=0)
 
