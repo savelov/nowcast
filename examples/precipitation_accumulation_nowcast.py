@@ -69,8 +69,8 @@ decomp_method       = "fft"
 
 ## forecast parameters
 n_prvs_times        = 6                # use at least 9 with DARTS
-n_leadtimes         = 6                # use 6 for one hour extrapolation and 12 for 2 hours extrapolation
-r_threshold         = 0.1               # rain/no-rain threshold [mm/h]
+n_leadtimes         = 12                # use 6 for one hour extrapolation and 12 for 2 hours extrapolation
+r_threshold         = 0.01              # rain/no-rain threshold [mm/h]
 unit                = "mm/h"            # mm/h or dBZ
 transformation      = "dB"              # None or dB
 adjust_domain       = None              # None or square
