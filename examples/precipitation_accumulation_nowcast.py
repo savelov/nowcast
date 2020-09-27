@@ -200,7 +200,7 @@ n_leadtimes = R_calc.shape[0]
 
 # # set -1 for nan
 #Back-transform to rain rates
-R_calc = pysteps.utils.transformation.dB_transform(R_calc, threshold=-10.0, inverse=True)[0]
+R_calc = pysteps.utils.transformation.dB_transform(R_calc, threshold=-20.0, inverse=True)[0]
 
 R_calc[np.isnan(R_calc)] = -1
 export_initializer = stp.io.get_method('netcdf', 'exporter')
