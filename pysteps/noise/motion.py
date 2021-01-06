@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 pysteps.noise.motion
 ====================
@@ -51,8 +52,9 @@ def get_default_params_bps_perp():
     return (5.76, 0.31, -2.72)
 
 
-def initialize_bps(V, pixelsperkm, timestep, p_par=None, p_perp=None,
-                   randstate=None, seed=None):
+def initialize_bps(
+    V, pixelsperkm, timestep, p_par=None, p_perp=None, randstate=None, seed=None
+):
     """Initialize the motion field perturbator described in :cite:`BPS2006`.
     For simplicity, the bias adjustment procedure described there has not been
     implemented. The perturbator generates a field whose magnitude increases
@@ -60,31 +62,31 @@ def initialize_bps(V, pixelsperkm, timestep, p_par=None, p_perp=None,
 
     Parameters
     ----------
-    V : array_like
+    V: array_like
       Array of shape (2,m,n) containing the x- and y-components of the m*n
       motion field to perturb.
-    p_par : tuple
+    p_par: tuple
       Tuple containing the parameters a,b and c for the standard deviation of
       the perturbations in the direction parallel to the motion vectors. The
       standard deviations are modeled by the function f_par(t) = a*t**b+c,
       where t is lead time. The default values are taken from :cite:`BPS2006`.
-    p_perp : tuple
+    p_perp: tuple
       Tuple containing the parameters a,b and c for the standard deviation of
       the perturbations in the direction perpendicular to the motion vectors.
       The standard deviations are modeled by the function f_par(t) = a*t**b+c,
       where t is lead time. The default values are taken from :cite:`BPS2006`.
-    pixelsperkm : float
+    pixelsperkm: float
       Spatial resolution of the motion field (pixels/kilometer).
-    timestep : float
+    timestep: float
       Time step for the motion vectors (minutes).
-    randstate : mtrand.RandomState
+    randstate: mtrand.RandomState
       Optional random generator to use. If set to None, use numpy.random.
-    seed : int
+    seed: int
       Optional seed number for the random generator.
 
     Returns
     -------
-    out : dict
+    out: dict
       A dictionary containing the perturbator that can be supplied to
       generate_motion_perturbations_bps.
 
@@ -115,8 +117,8 @@ def initialize_bps(V, pixelsperkm, timestep, p_par=None, p_perp=None,
     if seed is not None:
         randstate.seed(seed)
 
-    eps_par = randstate.laplace(scale=1.0/np.sqrt(2))
-    eps_perp = randstate.laplace(scale=1.0/np.sqrt(2))
+    eps_par = randstate.laplace(scale=1.0 / np.sqrt(2))
+    eps_perp = randstate.laplace(scale=1.0 / np.sqrt(2))
 
     # scale factor for converting the unit of the advection velocities
     # into km/h
@@ -143,14 +145,14 @@ def generate_bps(perturbator, t):
 
     Parameters
     ----------
-    perturbator : dict
+    perturbator: dict
       A dictionary returned by initialize_motion_perturbations_bps.
-    t : float
+    t: float
       Lead time for the perturbation field (minutes).
 
     Returns
     -------
-    out : ndarray
+    out: ndarray
       Array of shape (2,m,n) containing the x- and y-components of the motion
       vector perturbations, where m and n are determined from the perturbator.
 
@@ -170,4 +172,4 @@ def generate_bps(perturbator, t):
     g_par = p_par[0] * pow(t, p_par[1]) + p_par[2]
     g_perp = p_perp[0] * pow(t, p_perp[1]) + p_perp[2]
 
-    return (g_par*eps_par*V_par + g_perp*eps_perp*V_perp) / vsf
+    return (g_par * eps_par * V_par + g_perp * eps_perp * V_perp) / vsf

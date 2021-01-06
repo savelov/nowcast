@@ -1,58 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import datetime
 import pytest
-import numpy as np
-from pysteps import io, motion, nowcasts, rcparams, utils, verification
 
-
-def _import_mch_gif(prv, nxt):
-
-    date = datetime.datetime.strptime("201505151630", "%Y%m%d%H%M")
-    data_source = rcparams.data_sources["mch"]
-
-    # Load data source config
-    root_path = data_source["root_path"]
-    path_fmt = data_source["path_fmt"]
-    fn_pattern = data_source["fn_pattern"]
-    fn_ext = data_source["fn_ext"]
-    importer_name = data_source["importer"]
-    importer_kwargs = data_source["importer_kwargs"]
-    timestep = data_source["timestep"]
-
-    # Find the input files from the archive
-    fns = io.archive.find_by_date(
-        date,
-        root_path,
-        path_fmt,
-        fn_pattern,
-        fn_ext,
-        timestep=timestep,
-        num_prev_files=prv,
-        num_next_files=nxt,
-    )
-
-    # Read the radar composites
-    importer = io.get_method(importer_name, "importer")
-    R, _, metadata = io.read_timeseries(fns, importer, **importer_kwargs)
-
-    # Convert to rain rate
-    R, metadata = utils.conversion.to_rainrate(R, metadata)
-
-    # Upscale data to 2 km
-    R, metadata = utils.dimension.aggregate_fields_space(R, metadata, 2000)
-
-    # Log-transform the data to unit of dBR, set the threshold to 0.1 mm/h,
-    # set the fill value to -15 dBR
-    R, metadata = utils.transformation.dB_transform(
-        R, metadata, threshold=0.1, zerovalue=-15.0
-    )
-
-    # Set missing values with the fill value
-    R[~np.isfinite(R)] = -15.0
-
-    return R, metadata
-
+from pysteps import motion, nowcasts, verification
+from pysteps.tests.helpers import get_precipitation_fields
 
 steps_arg_names = (
     "n_ens_members",
@@ -60,16 +11,20 @@ steps_arg_names = (
     "ar_order",
     "mask_method",
     "probmatching_method",
+    "domain",
+    "timesteps",
     "max_crps",
 )
 
 steps_arg_values = [
-    (5, 6, 2, None, None, 1.51),
-    (5, 6, 2, "incremental", None, 6.38),
-    (5, 6, 2, "sprog", None, 7.35),
-    (5, 6, 2, "obs", None, 7.36),
-    (5, 6, 2, None, "cdf", 0.66),
-    (5, 6, 2, None, "mean", 1.55),
+    (5, 6, 2, None, None, "spatial", 3, 1.30),
+    (5, 6, 2, None, None, "spatial", [3], 1.30),
+    (5, 6, 2, "incremental", None, "spatial", 3, 7.25),
+    (5, 6, 2, "sprog", None, "spatial", 3, 8.35),
+    (5, 6, 2, "obs", None, "spatial", 3, 8.30),
+    (5, 6, 2, None, "cdf", "spatial", 3, 0.60),
+    (5, 6, 2, None, "mean", "spatial", 3, 1.30),
+    (5, 6, 2, "incremental", "cdf", "spectral", 3, 0.60),
 ]
 
 
@@ -80,22 +35,36 @@ def test_steps(
     ar_order,
     mask_method,
     probmatching_method,
+    domain,
+    timesteps,
     max_crps,
 ):
     """Tests STEPS nowcast."""
     # inputs
-    R, metadata = _import_mch_gif(2, 0)
-    R_o = _import_mch_gif(0, 3)[0][1:, :, :]
-    # optical flow
-    of_method = motion.get_method("LK")
-    V = of_method(R)
-    # nowcast
+    precip_input, metadata = get_precipitation_fields(
+        num_prev_files=2,
+        num_next_files=0,
+        return_raw=False,
+        metadata=True,
+        upscale=2000,
+    )
+    precip_input = precip_input.filled()
+
+    precip_obs = get_precipitation_fields(
+        num_prev_files=0, num_next_files=3, return_raw=False, upscale=2000
+    )[1:, :, :]
+    precip_obs = precip_obs.filled()
+
+    pytest.importorskip("cv2")
+    oflow_method = motion.get_method("LK")
+    retrieved_motion = oflow_method(precip_input)
+
     nowcast_method = nowcasts.get_method("steps")
-    num_timesteps = 1
-    R_f = nowcast_method(
-        R,
-        V,
-        n_timesteps=3,
+
+    precip_forecast = nowcast_method(
+        precip_input,
+        retrieved_motion,
+        timesteps=timesteps,
         R_thr=metadata["threshold"],
         kmperpixel=2.0,
         timestep=metadata["accutime"],
@@ -105,7 +74,20 @@ def test_steps(
         ar_order=ar_order,
         mask_method=mask_method,
         probmatching_method=probmatching_method,
+        domain=domain,
     )
-    # result
-    result = verification.probscores.CRPS(R_f[-1], R_o[-1])
-    assert result < max_crps
+
+    assert precip_forecast.ndim == 4
+    assert precip_forecast.shape[0] == n_ens_members
+    assert precip_forecast.shape[1] == (
+        timesteps if isinstance(timesteps, int) else len(timesteps)
+    )
+
+    crps = verification.probscores.CRPS(precip_forecast[:, -1], precip_obs[-1])
+    assert crps < max_crps, f"CRPS={crps:.2f}, required < {max_crps:.2f}"
+
+
+if __name__ == "__main__":
+    for n in range(len(steps_arg_values)):
+        test_args = zip(steps_arg_names, steps_arg_values[n])
+        test_steps(**dict((x, y) for x, y in test_args))

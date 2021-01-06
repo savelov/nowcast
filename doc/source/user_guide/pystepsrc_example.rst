@@ -10,6 +10,8 @@ The lines starting with "//" are comments and they are ignored.
 
     // pysteps configuration
     {
+        // "silent_import" : whether to suppress the initial pysteps message
+        "silent_import": false,
         "outputs": {
             // path_outputs : path where to save results (figures, forecasts, etc)
             "path_outputs": "./"
@@ -61,7 +63,7 @@ The lines starting with "//" are comments and they are ignored.
                 "path_fmt": "%Y%m%d",
                 "fn_pattern": "T_PAAH21_C_EUOC_%Y%m%d%H%M%S",
                 "fn_ext": "hdf",
-                "importer": "odim_hdf5",
+                "importer": "opera_hdf5",
                 "timestep": 15,
                 "importer_kwargs": {}
             },
@@ -73,7 +75,20 @@ The lines starting with "//" are comments and they are ignored.
                 "importer": "knmi_hdf5",
                 "timestep": 5,
                 "importer_kwargs": {
-                    "accutime": 5
+                    "accutime": 5,
+                    "qty": "ACRR",
+                    "pixelsize": 1000.0
+                }
+            },
+            "saf": {
+                "root_path": "./saf",
+                "path_fmt": "%Y%m%d/CRR",
+                "fn_pattern": "S_NWC_CRR_MSG4_Europe-VISIR_%Y%m%dT%H%M00Z",
+                "fn_ext": "nc",
+                "importer": "saf_crri",
+                "timestep": 15,
+                "importer_kwargs": {
+                    "gzipped": true
                 }
             }
         }

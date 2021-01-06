@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 pysteps.utils.tapering
 ======================
@@ -14,6 +15,7 @@ Implementations of window functions for computing of the FFT.
 import numpy as np
 from scipy.spatial import cKDTree
 
+
 def compute_mask_window_function(mask, func, **kwargs):
     """Compute window function for a two-dimensional area defined by a
     non-rectangular mask. The window function is computed based on the distance
@@ -22,16 +24,16 @@ def compute_mask_window_function(mask, func, **kwargs):
 
     Parameters
     ----------
-    mask : array_like
-        Two-dimensional boolean array containing the mask. Pixels with True/False
-        are inside/outside the mask.
-    func : str
+    mask: array_like
+        Two-dimensional boolean array containing the mask.
+        Pixels with True/False are inside/outside the mask.
+    func: str
         The name of the window function. The currently implemented function is
         'tukey'.
 
     Returns
     -------
-    out : array
+    out: array
         Array containing the tapering weights.
     """
     R = _compute_mask_distances(mask)
@@ -45,37 +47,40 @@ def compute_mask_window_function(mask, func, **kwargs):
     else:
         raise ValueError("invalid window function '%s'" % func)
 
+
 def compute_window_function(m, n, func, **kwargs):
     """Compute window function for a two-dimensional rectangular region. Window
     function-specific parameters are given as keyword arguments.
 
     Parameters
     ----------
-    m : int
+    m: int
         Height of the array.
-    n : int
+    n: int
         Width of the array.
-    func : str
-        The name of the window function. The currently implemented functions are
+    func: str
+        The name of the window function.
+        The currently implemented functions are
         'hann' and 'tukey'.
 
     Other Parameters
     ----------------
-    alpha : float
+    alpha: float
         Applicable if func is 'tukey'.
 
     Notes
     -----
     Two-dimensional tapering weights are computed from one-dimensional window
-    functions using w(r), where r is the distance from the center of the region.
+    functions using w(r), where r is the distance from the center of the
+    region.
 
     Returns
     -------
-    out : array
+    out: array
         Array of shape (m, n) containing the tapering weights.
     """
     X, Y = np.meshgrid(np.arange(n), np.arange(m))
-    R = np.sqrt((X - int(n/2))**2 + (Y - int(m/2))**2)
+    R = np.sqrt((X - int(n / 2)) ** 2 + (Y - int(m / 2)) ** 2)
 
     if func == "hann":
         return _hann(R)
@@ -85,6 +90,7 @@ def compute_window_function(m, n, func, **kwargs):
         return _tukey(R, alpha)
     else:
         raise ValueError("invalid window function '%s'" % func)
+
 
 def _compute_mask_distances(mask):
     X, Y = np.meshgrid(np.arange(mask.shape[1]), np.arange(mask.shape[0]))
@@ -97,28 +103,33 @@ def _compute_mask_distances(mask):
 
     return R
 
+
 def _hann(R):
     W = np.ones_like(R)
     N = min(R.shape[0], R.shape[1])
     mask = R > int(N / 2)
 
     W[mask] = 0.0
-    W[~mask] = 0.5 * (1.0 - np.cos(2.0 * np.pi * (R[~mask] + int(N/2)) / N))
+    W[~mask] = 0.5 * (1.0 - np.cos(2.0 * np.pi * (R[~mask] + int(N / 2)) / N))
 
     return W
+
 
 def _tukey(R, alpha):
     W = np.ones_like(R)
     N = min(R.shape[0], R.shape[1])
 
-    mask1 = R < int(N/2)
+    mask1 = R < int(N / 2)
     mask2 = R > int(N / 2) * (1.0 - alpha)
     mask = np.logical_and(mask1, mask2)
-    W[mask] = 0.5 * (1.0 + np.cos(np.pi*(R[mask] / (alpha * 0.5 * N) - 1.0/alpha + 1.0)))
-    mask = R >= int(N/2)
+    W[mask] = 0.5 * (
+        1.0 + np.cos(np.pi * (R[mask] / (alpha * 0.5 * N) - 1.0 / alpha + 1.0))
+    )
+    mask = R >= int(N / 2)
     W[mask] = 0.0
 
     return W
+
 
 def _tukey_masked(R, r_max, mask):
     W = np.ones_like(R)

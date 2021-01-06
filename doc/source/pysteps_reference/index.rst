@@ -14,14 +14,20 @@ available in pySTEPS.
     :maxdepth: 2
     :caption: Pysteps modules
 
+    pysteps
     cascade
+    decorators
     extrapolation
+    datasets
+    downscaling
+    feature
     io
     motion
     noise
     nowcasts
     postprocessing
     timeseries
+    tracking
     utils
     verification
     visualization
