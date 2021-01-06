@@ -1,7 +1,12 @@
-"""Bandpass filters for separating different spatial scales from two-dimensional
+# -*- coding: utf-8 -*-
+"""
+pysteps.cascade.bandpass_filters
+================================
+
+Bandpass filters for separating different spatial scales from two-dimensional
 images in the frequency domain.
 
-The methods in this module implement the following interface:
+The methods in this module implement the following interface::
 
     filter_xxx(shape, n, optional arguments)
 
@@ -25,15 +30,26 @@ key-value pairs:
 | central_freqs   | 1d array of shape n containing the central frequencies of |
 |                 | the filters                                               |
 +-----------------+-----------------------------------------------------------+
+| shape           | the shape of the input field in the spatial domain        |
++-----------------+-----------------------------------------------------------+
 
 where r = int(max(N, M)/2)+1
 
-The filter weights are assumed to be normalized so that for any Fourier
+By default, the filter weights are normalized so that for any Fourier
 wavenumber they sum to one.
 
+Available filters
+-----------------
+
+.. autosummary::
+    :toctree: ../generated/
+
+    filter_uniform
+    filter_gaussian
 """
 
 import numpy as np
+
 
 def filter_uniform(shape, n):
     """A dummy filter with one frequency band covering the whole domain. The
@@ -41,52 +57,64 @@ def filter_uniform(shape, n):
 
     Parameters
     ----------
-    shape : int or tuple
+    shape: int or tuple
         The dimensions (height, width) of the input field. If shape is an int,
         the domain is assumed to have square shape.
-    n : int
+    n: int
         Not used. Needed for compatibility with the filter interface.
 
     """
+    del n  # Unused
+
     result = {}
 
     try:
-        M,N = shape
+        height, width = shape
     except TypeError:
-        M,N = (shape, shape)
+        height, width = (shape, shape)
 
-    r_max = int(max(N, M)/2)+1
+    r_max = int(max(width, height) / 2) + 1
 
-    result["weights_1d"]    = np.ones((1, r_max))
-    result["weights_2d"]    = np.ones((1, M, int(N/2)+1))
+    result["weights_1d"] = np.ones((1, r_max))
+    result["weights_2d"] = np.ones((1, height, int(width / 2) + 1))
     result["central_freqs"] = None
+    result["central_wavenumbers"] = None
+    result["shape"] = shape
 
     return result
 
-def filter_gaussian(shape, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
+
+def filter_gaussian(
+    shape, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5, d=1.0, normalize=True
+):
     """Implements a set of Gaussian bandpass filters in logarithmic frequency
     scale.
 
     Parameters
     ----------
-    shape : int or tuple
+    shape: int or tuple
         The dimensions (height, width) of the input field. If shape is an int,
         the domain is assumed to have square shape.
-    n : int
+    n: int
         The number of frequency bands to use. Must be greater than 2.
-    l_0 : int
+    l_0: int
         Central frequency of the second band (the first band is always centered
         at zero).
-    gauss_scale : float
-        Optional scaling prameter. Proportional to the standard deviation of the
-        Gaussian weight functions.
-    gauss_scale_0 : float
+    gauss_scale: float
+        Optional scaling prameter. Proportional to the standard deviation of
+        the Gaussian weight functions.
+    gauss_scale_0: float
         Optional scaling parameter for the Gaussian function corresponding to
         the first frequency band.
+    d: scalar, optional
+        Sample spacing (inverse of the sampling rate). Defaults to 1.
+    normalize: bool
+        If True, normalize the weights so that for any given wavenumber
+        they sum to one.
 
     Returns
     -------
-    out : dict
+    out: dict
         A dictionary containing the bandpass filters corresponding to the
         specified frequency bands.
 
@@ -99,53 +127,65 @@ def filter_gaussian(shape, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
         raise ValueError("n must be greater than 2")
 
     try:
-        M,N = shape
+        height, width = shape
     except TypeError:
-        M,N = (shape, shape)
+        height, width = (shape, shape)
 
-    rx = np.s_[:int(N/2)+1]
+    rx = np.s_[: int(width / 2) + 1]
 
-    if M % 2 == 1:
-        ry = np.s_[-int(M/2):int(M/2)+1]
+    if (height % 2) == 1:
+        ry = np.s_[-int(height / 2) : int(height / 2) + 1]
     else:
-        ry = np.s_[-int(M/2):int(M/2)]
+        ry = np.s_[-int(height / 2) : int(height / 2)]
 
-    Y,X = np.ogrid[ry, rx]
-    dy = int(M/2) if M % 2 == 0 else int(M/2)+1
-    R = np.roll(np.sqrt(X*X + Y*Y), dy, axis=0)
+    y_grid, x_grid = np.ogrid[ry, rx]
+    dy = int(height / 2) if height % 2 == 0 else int(height / 2) + 1
 
-    L = max(N, M)
-    r_max = int(L/2)+1
-    r = np.arange(r_max)
+    r_2d = np.roll(np.sqrt(x_grid * x_grid + y_grid * y_grid), dy, axis=0)
 
-    wfs,cfs = _gaussweights_1d(L, n, l_0=l_0, gauss_scale=gauss_scale,
-                               gauss_scale_0=gauss_scale_0)
+    max_length = max(width, height)
 
-    w = np.empty((n, r_max))
-    W = np.empty((n, M, int(N/2)+1))
+    r_max = int(max_length / 2) + 1
+    r_1d = np.arange(r_max)
 
-    for i,wf in enumerate(wfs):
-        w[i, :] = wf(r)
-        W[i, :, :] = wf(R)
+    wfs, central_wavenumbers = _gaussweights_1d(
+        max_length, n, l_0=l_0, gauss_scale=gauss_scale, gauss_scale_0=gauss_scale_0
+    )
 
-    w_sum = np.sum(w, axis=0)
-    W_sum = np.sum(W, axis=0)
-    for k in range(W.shape[0]):
-        w[k, :]    /= w_sum
-        W[k, :, :] /= W_sum
+    weights_1d = np.empty((n, r_max))
+    weights_2d = np.empty((n, height, int(width / 2) + 1))
 
-    result = {}
-    result["weights_1d"]    = w
-    result["weights_2d"]    = W
-    result["central_freqs"] = np.array(cfs)
+    for i, wf in enumerate(wfs):
+        weights_1d[i, :] = wf(r_1d)
+        weights_2d[i, :, :] = wf(r_2d)
+
+    if normalize:
+        weights_1d_sum = np.sum(weights_1d, axis=0)
+        weights_2d_sum = np.sum(weights_2d, axis=0)
+        for k in range(weights_2d.shape[0]):
+            weights_1d[k, :] /= weights_1d_sum
+            weights_2d[k, :, :] /= weights_2d_sum
+
+    result = {"weights_1d": weights_1d, "weights_2d": weights_2d}
+    result["shape"] = shape
+
+    central_wavenumbers = np.array(central_wavenumbers)
+    result["central_wavenumbers"] = central_wavenumbers
+
+    # Compute frequencies
+    central_freqs = 1.0 * central_wavenumbers / max_length
+    central_freqs[0] = 1.0 / max_length
+    central_freqs[-1] = 0.5  # Nyquist freq
+    central_freqs = 1.0 * d * central_freqs
+    result["central_freqs"] = central_freqs
 
     return result
 
-def _gaussweights_1d(l, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
-    e = pow(0.5*l/l_0, 1.0/(n-2))
-    r = [(l_0*pow(e, k-1), l_0*pow(e, k)) for k in range(1, n-1)]
 
-    f = lambda x,s: np.exp(-x**2.0 / (2.0*s**2.0))
+def _gaussweights_1d(l, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
+    e = pow(0.5 * l / l_0, 1.0 / (n - 2))
+    r = [(l_0 * pow(e, k - 1), l_0 * pow(e, k)) for k in range(1, n - 1)]
+
     def log_e(x):
         if len(np.shape(x)) > 0:
             res = np.empty(x.shape)
@@ -159,35 +199,35 @@ def _gaussweights_1d(l, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
 
         return res
 
-    class gaussfunc:
-
+    class GaussFunc:
         def __init__(self, c, s):
             self.c = c
             self.s = s
 
         def __call__(self, x):
-            return f(log_e(x) - self.c, self.s)
+            x = log_e(x) - self.c
+            return np.exp(-(x ** 2.0) / (2.0 * self.s ** 2.0))
 
-    weight_funcs  = []
-    central_freqs = [0.0]
+    weight_funcs = []
+    central_wavenumbers = [0.0]
 
-    s = gauss_scale
-    weight_funcs.append(gaussfunc(0.0, gauss_scale_0))
+    weight_funcs.append(GaussFunc(0.0, gauss_scale_0))
 
-    for i,ri in enumerate(r):
+    for i, ri in enumerate(r):
         rc = log_e(ri[0])
-        weight_funcs.append(gaussfunc(rc, s))
-        central_freqs.append(ri[0])
+        weight_funcs.append(GaussFunc(rc, gauss_scale))
+        central_wavenumbers.append(ri[0])
 
-    gf = gaussfunc(log_e(l/2), s)
+    gf = GaussFunc(log_e(l / 2), gauss_scale)
+
     def g(x):
         res = np.ones(x.shape)
-        mask = x <= l/2
+        mask = x <= l / 2
         res[mask] = gf(x[mask])
 
         return res
 
     weight_funcs.append(g)
-    central_freqs.append(l/2)
+    central_wavenumbers.append(l / 2)
 
-    return weight_funcs, central_freqs
+    return weight_funcs, central_wavenumbers

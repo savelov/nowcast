@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-#
-# Licensed under the BSD-3-Clause license
-# Copyright (c) 2018, Andres A. Perez Hortal
 """
-Variational Echo Tracking (VET) Module
+pysteps.motion.vet
+==================
 
+Variational Echo Tracking (VET) Module
 
 This module implements the VET algorithm presented
 by `Laroche and Zawadzki (1995)`_ and used in the
@@ -20,6 +19,19 @@ in `Germann and Zawadzki (2002)`_.
 
 The morphing and the cost functions are implemented in Cython and parallelized
 for performance.
+
+.. currentmodule:: pysteps.motion.vet
+
+.. autosummary::
+    :toctree: ../generated/
+
+    vet
+    vet_cost_function
+    vet_cost_function_gradient
+    morph
+    round_int
+    ceil_int
+    get_padding
 """
 
 import numpy
@@ -27,6 +39,7 @@ from numpy.ma.core import MaskedArray
 from scipy.ndimage.interpolation import zoom
 from scipy.optimize import minimize
 
+from pysteps.decorators import check_input_frames
 from pysteps.motion._vet import _warp, _cost_function
 
 
@@ -52,16 +65,13 @@ def get_padding(dimension_size, sectors):
 
     Parameters
     ----------
-
-    dimension_size : int
+    dimension_size: int
         Actual dimension size.
-
-    sectors : int
+    sectors: int
         number of sectors over which the the image will be divided.
 
-    Return
-    ------
-
+    Returns
+    -------
     pad_before , pad_after: int, int
         Padding at each side of the image for the corresponding dimension.
     """
@@ -98,7 +108,6 @@ def morph(image, displacement, gradient=False):
     .. _`Beezley and Mandel (2008)`: http://dx.doi.org/10.1111/\
     j.1600-0870.2007.00275.x
 
-
     The displacement field in x and y directions and the image must have the
     same dimensions.
 
@@ -110,72 +119,64 @@ def morph(image, displacement, gradient=False):
 
     Parameters
     ----------
-
-    image : ndarray (ndim = 2)
+    image: ndarray (ndim = 2)
         Image to morph
-
-    displacement : ndarray (ndim = 3)
+    displacement: ndarray (ndim = 3)
         Displacement field to be applied (Warping). The first dimension
         corresponds to the coordinate to displace.
 
-        The dimensions are:
-        displacement [ i/x (0) or j/y (1) ,
-                      i index of pixel, j index of pixel ]
-
-
-    gradient : bool, optional
+        The dimensions are: displacement [ i/x (0) or j/y (1) ,
+        i index of pixel, j index of pixel ]
+    gradient: bool, optional
         If True, the gradient of the morphing function is returned.
-
 
     Returns
     -------
-
-    image : ndarray (float64 ,ndim = 2)
+    image: ndarray (float64 ,ndim = 2)
         Morphed image.
-
-    mask : ndarray (int8 ,ndim = 2)
+    mask: ndarray (int8 ,ndim = 2)
         Invalid values mask. Points outside the boundaries are masked.
         Values greater than 1, indicate masked values.
-
-    gradient_values : ndarray (float64 ,ndim = 3), optional
+    gradient_values: ndarray (float64 ,ndim = 3), optional
         If gradient keyword is True, the gradient of the function is also
         returned.
-
     """
 
     if not isinstance(image, MaskedArray):
-        _mask = numpy.zeros_like(image, dtype='int8')
+        _mask = numpy.zeros_like(image, dtype="int8")
     else:
-        _mask = numpy.asarray(numpy.ma.getmaskarray(image),
-                              dtype='int8')
+        _mask = numpy.asarray(numpy.ma.getmaskarray(image), dtype="int8", order="C")
 
-    _image = numpy.asarray(image, dtype='float64', order='C')
-    _displacement = numpy.asarray(displacement, dtype='float64', order='C')
+    _image = numpy.asarray(image, dtype="float64", order="C")
+    _displacement = numpy.asarray(displacement, dtype="float64", order="C")
 
     return _warp(_image, _mask, _displacement, gradient=gradient)
 
 
 def vet_cost_function_gradient(*args, **kwargs):
+    """Compute the vet cost function gradient.
+    See :py:func:`vet_cost_function` for more information.
+    """
     kwargs["gradient"] = True
     return vet_cost_function(*args, **kwargs)
 
 
-def vet_cost_function(sector_displacement_1d,
-                      input_images,
-                      blocks_shape,
-                      mask,
-                      smooth_gain,
-                      debug=False,
-                      gradient=False):
+def vet_cost_function(
+    sector_displacement_1d,
+    input_images,
+    blocks_shape,
+    mask,
+    smooth_gain,
+    debug=False,
+    gradient=False,
+):
     """
+    .. _`scipy minimization`: \
+    https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.optimize.minimize.html
+    
     Variational Echo Tracking Cost Function.
 
-    .. _`scipy.optimize.minimize` :\
-    https://docs.scipy.org/doc/scipy-0.18.1/reference/\
-    generated/scipy.optimize.minimize.html
-
-    This function is designed to be used with the `scipy.optimize.minimize`_
-
+    This function is designed to be used with the `scipy minimization`_.
     The function first argument is the variable to be used in the
     minimization procedure.
 
@@ -186,11 +187,9 @@ def vet_cost_function(sector_displacement_1d,
     .. _ndarray:\
     https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html
 
-
     Parameters
     ----------
-
-    sector_displacement_1d : ndarray_
+    sector_displacement_1d: ndarray_
         Array of displacements to apply to each sector. The dimensions are:
         sector_displacement_2d
         [ x (0) or y (1) displacement, i index of sector, j index of sector ].
@@ -198,8 +197,7 @@ def vet_cost_function(sector_displacement_1d,
         input image and the block shape.
         The shape should be (2, mx, my) where mx and my are the numbers of
         sectors in the x and the y dimension.
-
-    input_images : ndarray_
+    input_images: ndarray_
         Input images, sequence of 2D arrays, or 3D arrays.
         The first dimension represents the images time dimension.
 
@@ -209,40 +207,33 @@ def vet_cost_function(sector_displacement_1d,
 
         The expected dimensions are (2,nx,ny).
         Be aware the the 2D images dimensions correspond to (lon,lat) or (x,y).
-
-    blocks_shape : ndarray_ (ndim=2)
+    blocks_shape: ndarray_ (ndim=2)
         Number of sectors in each dimension (x and y).
         blocks_shape.shape = (mx,my)
-
-    mask : ndarray_ (ndim=2)
+    mask: ndarray_ (ndim=2)
         Data mask. If is True, the data is marked as not valid and is not
         used in the computations.
-
-    smooth_gain : float
+    smooth_gain: float
         Smoothness constrain gain
-
-    debug : bool, optional
+    debug: bool, optional
         If True, print debugging information.
-
-    gradient : bool, optional
+    gradient: bool, optional
         If True, the gradient of the morphing function is returned.
 
     Returns
     -------
+    penalty or gradient values.
 
-    penalty or  gradient values.
-
-    penalty : float
+    penalty: float
         Value of the cost function
-
-    gradient_values : ndarray (float64 ,ndim = 3), optional
+    gradient_values: ndarray (float64 ,ndim = 3), optional
         If gradient keyword is True, the gradient of the function is also
         returned.
-
     """
 
-    sector_displacement_2d = \
-        sector_displacement_1d.reshape(*((2,) + tuple(blocks_shape)))
+    sector_displacement_2d = sector_displacement_1d.reshape(
+        *((2,) + tuple(blocks_shape))
+    )
 
     if input_images.shape[0] == 3:
         three_times = True
@@ -257,37 +248,45 @@ def vet_cost_function(sector_displacement_1d,
         three_times = False
 
     if gradient:
-        gradient_values = _cost_function(sector_displacement_2d,
-                                         center_image,
-                                         next_image,
-                                         mask,
-                                         smooth_gain,
-                                         gradient=True)
+        gradient_values = _cost_function(
+            sector_displacement_2d,
+            center_image,
+            next_image,
+            mask,
+            smooth_gain,
+            gradient=True,
+        )
         if three_times:
-            gradient_values += _cost_function(sector_displacement_2d,
-                                              previous_image,
-                                              center_image,
-                                              mask,
-                                              smooth_gain,
-                                              gradient=True)
+            gradient_values += _cost_function(
+                sector_displacement_2d,
+                previous_image,
+                center_image,
+                mask,
+                smooth_gain,
+                gradient=True,
+            )
 
         return gradient_values.ravel()
 
     else:
-        residuals, smoothness_penalty = _cost_function(sector_displacement_2d,
-                                                       center_image,
-                                                       next_image,
-                                                       mask,
-                                                       smooth_gain,
-                                                       gradient=False)
+        residuals, smoothness_penalty = _cost_function(
+            sector_displacement_2d,
+            center_image,
+            next_image,
+            mask,
+            smooth_gain,
+            gradient=False,
+        )
 
         if three_times:
-            _residuals, _smoothness = _cost_function(sector_displacement_2d,
-                                                     previous_image,
-                                                     center_image,
-                                                     mask,
-                                                     smooth_gain,
-                                                     gradient=False)
+            _residuals, _smoothness = _cost_function(
+                sector_displacement_2d,
+                previous_image,
+                center_image,
+                mask,
+                smooth_gain,
+                gradient=False,
+            )
 
             residuals += _residuals
             smoothness_penalty += _smoothness
@@ -299,15 +298,18 @@ def vet_cost_function(sector_displacement_1d,
         return residuals + smoothness_penalty
 
 
-def vet(input_images,
-        sectors=((32, 16, 4, 2), (32, 16, 4, 2)),
-        smooth_gain=1e6,
-        first_guess=None,
-        intermediate_steps=False,
-        verbose=True,
-        indexing='yx',
-        padding=0,
-        options=None):
+@check_input_frames(2, 3)
+def vet(
+    input_images,
+    sectors=((32, 16, 4, 2), (32, 16, 4, 2)),
+    smooth_gain=1e6,
+    first_guess=None,
+    intermediate_steps=False,
+    verbose=True,
+    indexing="yx",
+    padding=0,
+    options=None,
+):
     """
     Variational Echo Tracking Algorithm presented in
     `Laroche and Zawadzki (1995)`_  and used in the McGill Algorithm for
@@ -322,31 +324,38 @@ def vet(input_images,
 
     This algorithm computes the displacement field between two images
     ( the input_image with respect to the template image).
-    The displacement is sought by minimizing sum of the residuals of the
+    The displacement is sought by minimizing the sum of the residuals of the
     squared differences of the images pixels and the contribution of a
-    smoothness constrain.
+    smoothness constraint.
+    In the case that a MaskedArray is used as input, the residuals term in
+    the cost function is only computed over areas with non-masked values.
+    Otherwise, it is computed over the entire domain.
 
-    In order to find the minimum an scaling guess procedure is applied,
-    from larger scales
-    to a finer scale. This reduces the changes that the minimization procedure
-    converges to a local minimum. The scaling guess is defined by the scaling
-    sectors (see **sectors** keyword).
+    To find the minimum, a scaling guess procedure is applied,
+    from larger to smaller scales.
+    This reduces the chances that the minimization procedure
+    converges to a local minimum.
+    The first scaling guess is defined by the scaling sectors keyword.
 
     The smoothness of the returned displacement field is controlled by the
-    smoothness constrain gain (**smooth_gain** keyword).
+    smoothness constraint gain (**smooth_gain** keyword).
 
-    If a first guess is not given, zero displacements are used as first guess.
+    If a first guess is not given, zero displacements are used as the first
+    guess.
 
-    To minimize the cost function, the `scipy minimization`_ function is used
-    with the 'CG' method. This method proved to give the best results under
-    any different conditions and is the most similar one to the original VET
-    implementation in `Laroche and Zawadzki (1995)`_.
+    The cost function is minimized using the `scipy minimization`_ function,
+    with the 'CG' method by default.
+    This method proved to give the best results under many different conditions
+    and is the most similar one to the original VET implementation in
+    `Laroche and Zawadzki (1995)`_.
 
 
     The method CG uses a nonlinear conjugate gradient algorithm by Polak and
     Ribiere, a variant of the Fletcher-Reeves method described in
     Nocedal and Wright (2006), pp. 120-122.
 
+    .. _`scipy minimization`: \
+    https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.optimize.minimize.html
 
     .. _MaskedArray: https://docs.scipy.org/doc/numpy/reference/\
         maskedarray.baseclass.html#numpy.ma.MaskedArray
@@ -356,8 +365,7 @@ def vet(input_images,
 
     Parameters
     ----------
-
-    input_images : ndarray_ or MaskedArray
+    input_images: ndarray_ or MaskedArray
         Input images, sequence of 2D arrays, or 3D arrays.
         The first dimension represents the images time dimension.
 
@@ -366,17 +374,14 @@ def vet(input_images,
         The second is the target image.
 
         The expected dimensions are (2,ni,nj).
-
-    sectors : list or array, optional
-        The number of sectors for each dimension used in the scaling procedure.
+    sectors: list or array, optional
+        Number of sectors on each dimension used in the scaling procedure.
         If dimension is 1, the same sectors will be used both image dimensions
-        (x and y). If is 2D, the each row determines the sectors of the
-        each dimension.
-
-    smooth_gain : float, optional
+        (x and y). If **sectors** is a 1D array, the same number of sectors
+        is used in both dimensions.
+    smooth_gain: float, optional
         Smooth gain factor
-
-    first_guess : ndarray_, optional_
+    first_guess: ndarray_, optional
         The shape of the first guess should have the same shape as the initial
         sectors shapes used in the scaling procedure.
         If first_guess is not present zeros are used as first guess.
@@ -384,47 +389,38 @@ def vet(input_images,
         E.g.:
             If the first sector shape in the scaling procedure is (ni,nj), then
             the first_guess should have (2, ni, nj ) shape.
-
-    intermediate_steps : bool, optional
+    intermediate_steps: bool, optional
         If True, also return a list with the first guesses obtained during the
         scaling procedure. False, by default.
-
-    verbose : bool, optional
+    verbose: bool, optional
         Verbosity enabled if True (default).
-
-    indexing : str, optional
+    indexing: str, optional
         Input indexing order.'ij' and 'xy' indicates that the
         dimensions of the input are (time, longitude, latitude), while
         'yx' indicates (time, latitude, longitude).
         The displacement field dimensions are ordered accordingly in a way that
         the first dimension indicates the displacement along x (0) or y (1).
         That is, UV displacements are always returned.
-
-    padding : int
+    padding: int
         Padding width in grid points. A border is added to the input array
         to reduce the effects of the minimization at the border.
-
-    options : dict, optional
+    options: dict, optional
         A dictionary of solver options.
         See `scipy minimization`_ function for more details.
 
-    .. _`scipy minimization` : https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-
     Returns
     -------
-
-    displacement_field : ndarray_
+    displacement_field: ndarray_
         Displacement Field (2D array representing the transformation) that
         warps the template image into the input image.
         The dimensions are (2,ni,nj), where the first
-        dimension indicates the displacement along x (0) or y (1).
-
-    intermediate_steps : list of ndarray_
+        dimension indicates the displacement along x (0) or y (1) in units of
+        pixels / timestep as given by the input_images array.
+    intermediate_steps: list of ndarray_
         List with the first guesses obtained during the scaling procedure.
 
     References
     ----------
-
     Laroche, S., and I. Zawadzki, 1995:
     Retrievals of horizontal winds from single-Doppler clear-air data by
     methods of cross-correlation and variational analysis.
@@ -438,13 +434,15 @@ def vet(input_images,
     doi: 10.1175/1520-0493(2002)130<2859:SDOTPO>2.0.CO;2.
 
     Nocedal, J, and S J Wright. 2006. Numerical Optimization. Springer New York.
-
     """
 
     if verbose:
+
         def debug_print(*args, **kwargs):
             print(*args, **kwargs)
+
     else:
+
         def debug_print(*args, **kwargs):
             del args
             del kwargs
@@ -454,10 +452,11 @@ def vet(input_images,
     else:
         options = dict(options)
 
-    options.setdefault('eps', 0.1)
-    options.setdefault('gtol', 0.1)
-    options.setdefault('maxiter', 100)
-    options.setdefault('disp', False)
+    options.setdefault("eps", 0.1)
+    options.setdefault("gtol", 0.1)
+    options.setdefault("maxiter", 100)
+    options.setdefault("disp", False)
+    optimization_method = options.pop("method", "CG")
 
     # Set to None to suppress pylint warning.
     pad_i = None
@@ -467,54 +466,57 @@ def vet(input_images,
 
     debug_print("Running VET algorithm")
 
-    if (input_images.ndim != 3) or (1 < input_images.shape[0] > 3):
-        raise ValueError("input_images dimension mismatch.\n" +
-                         "input_images.shape: " + str(input_images.shape) +
-                         "\n(2, x, y ) or (2, x, y ) dimensions expected")
-
-    valid_indexing = ['yx', 'xy', 'ij']
+    valid_indexing = ["yx", "xy", "ij"]
 
     if indexing not in valid_indexing:
-        raise ValueError("Invalid indexing valus: {0}\n".format(indexing)
-                         + "Supported values: {0}".format(str(valid_indexing)))
+        raise ValueError(
+            "Invalid indexing values: {0}\n".format(indexing)
+            + "Supported values: {0}".format(str(valid_indexing))
+        )
 
-    # Get mask
-    if isinstance(input_images, MaskedArray):
-        mask = numpy.ma.getmaskarray(input_images)
-    else:
-        # Mask invalid data
-        if padding > 0:
-            padding_tuple = ((0, 0), (padding, padding), (padding, padding))
-
-            input_images = numpy.pad(input_images,
-                                     padding_tuple,
-                                     'constant',
-                                     constant_values=numpy.nan)
-
+    # Convert input_images to a MaskedArray if it is a regular ndarray
+    if not isinstance(input_images, MaskedArray):
         input_images = numpy.ma.masked_invalid(input_images)
-        mask = numpy.ma.getmaskarray(input_images)
 
-    input_images[mask] = 0  # Remove any Nan from the raw data
+    mask = numpy.ma.getmaskarray(input_images)
+
+    if padding > 0:
+        padding_tuple = ((0, 0), (padding, padding), (padding, padding))
+
+        input_images_data = numpy.pad(
+            numpy.ma.getdata(input_images),
+            padding_tuple,
+            "constant",
+            constant_values=numpy.nan,
+        )
+
+        mask = numpy.pad(mask, padding_tuple, "constant", constant_values=True)
+
+        input_images = numpy.ma.MaskedArray(data=input_images_data, mask=mask)
+
+    input_images.data[mask] = 0  # Remove any Nan from the raw data
 
     # Create a 2D mask with the right data type for _vet
-    mask = numpy.asarray(numpy.any(mask, axis=0), dtype='int8')
+    mask = numpy.asarray(numpy.any(mask, axis=0), dtype="int8", order="C")
 
-    input_images = numpy.asarray(input_images.data, dtype='float64')
+    input_images = numpy.asarray(input_images.data, dtype="float64", order="C")
 
     # Check that the sectors divide the domain
-    sectors = numpy.asarray(sectors, dtype="int")
+    sectors = numpy.asarray(sectors, dtype="int", order="C")
 
     if sectors.ndim == 1:
 
-        new_sectors = (numpy.zeros((2,) + sectors.shape, dtype='int')
-                       + sectors.reshape((1, sectors.shape[0]))
-                       )
+        new_sectors = numpy.zeros(
+            (2,) + sectors.shape, dtype="int", order="C"
+        ) + sectors.reshape((1, sectors.shape[0]))
         sectors = new_sectors
     elif sectors.ndim > 2 or sectors.ndim < 1:
-        raise ValueError("Incorrect sectors dimensions.\n"
-                         + "Only 1D or 2D arrays are supported to define"
-                         + "the number of sectors used in"
-                         + "the scaling procedure")
+        raise ValueError(
+            "Incorrect sectors dimensions.\n"
+            + "Only 1D or 2D arrays are supported to define"
+            + "the number of sectors used in"
+            + "the scaling procedure"
+        )
 
     # Sort sectors in descending order
     sectors[0, :].sort()
@@ -524,24 +526,24 @@ def vet(input_images,
     first_guess_shape = (2, int(sectors[0, 0]), int(sectors[1, 0]))
 
     if first_guess is None:
-        first_guess = numpy.zeros(first_guess_shape, order='C')
+        first_guess = numpy.zeros(first_guess_shape, order="C")
     else:
         if first_guess.shape != first_guess_shape:
             raise ValueError(
                 "The shape of the initial guess do not match the number of "
                 + "sectors of the first scaling guess\n"
                 + "first_guess.shape={}\n".format(str(first_guess.shape))
-                + "Expected shape={}".format(str(first_guess_shape)))
+                + "Expected shape={}".format(str(first_guess_shape))
+            )
         else:
-            first_guess = numpy.asarray(first_guess, order='C', dtype='float64')
+            first_guess = numpy.asarray(first_guess, order="C", dtype="float64")
 
     scaling_guesses = list()
 
     previous_sectors_in_i = sectors[0, 0]
     previous_sectors_in_j = sectors[1, 0]
 
-    for n, (sectors_in_i, sectors_in_j) in enumerate(zip(sectors[0, :],
-                                                         sectors[1, :])):
+    for n, (sectors_in_i, sectors_in_j) in enumerate(zip(sectors[0, :], sectors[1, :])):
 
         # Minimize for each sector size
         pad_i = get_padding(input_images.shape[1], sectors_in_i)
@@ -549,60 +551,68 @@ def vet(input_images,
 
         if (pad_i != (0, 0)) or (pad_j != (0, 0)):
 
-            _input_images = numpy.pad(input_images, ((0, 0), pad_i, pad_j), 'edge')
+            _input_images = numpy.pad(input_images, ((0, 0), pad_i, pad_j), "edge")
 
-            _mask = numpy.pad(mask, (pad_i, pad_j),
-                              'constant',
-                              constant_values=1)
-
+            _mask = numpy.pad(mask, (pad_i, pad_j), "constant", constant_values=1)
+            _mask = numpy.ascontiguousarray(_mask)
             if first_guess is None:
-                first_guess = numpy.pad(first_guess, ((0, 0), pad_i, pad_j), 'edge')
+                first_guess = numpy.pad(first_guess, ((0, 0), pad_i, pad_j), "edge")
+                first_guess = numpy.ascontiguousarray(first_guess)
+
         else:
             _input_images = input_images
             _mask = mask
 
-        sector_shape = (_input_images.shape[1] // sectors_in_i,
-                        _input_images.shape[2] // sectors_in_j)
+        sector_shape = (
+            _input_images.shape[1] // sectors_in_i,
+            _input_images.shape[2] // sectors_in_j,
+        )
 
-        debug_print("original image shape: " + str(_input_images.shape))
+        debug_print("original image shape: " + str(input_images.shape))
         debug_print("padded image shape: " + str(_input_images.shape))
-        debug_print("padded template_image image shape: "
-                    + str(_input_images.shape))
+        debug_print("padded template_image image shape: " + str(_input_images.shape))
 
-        debug_print("\nNumber of sectors: {0:d},{1:d}".format(sectors_in_i,
-                                                              sectors_in_j))
+        debug_print(
+            "\nNumber of sectors: {0:d},{1:d}".format(sectors_in_i, sectors_in_j)
+        )
 
         debug_print("Sector Shape:", sector_shape)
 
         if n > 0:
-            first_guess = zoom(first_guess,
-                               (1,
-                                sectors_in_i / previous_sectors_in_i,
-                                sectors_in_j / previous_sectors_in_j),
-                               order=1, mode='nearest')
+            first_guess = zoom(
+                first_guess,
+                (
+                    1,
+                    sectors_in_i / previous_sectors_in_i,
+                    sectors_in_j / previous_sectors_in_j,
+                ),
+                order=1,
+                mode="nearest",
+            )
 
         debug_print("Minimizing")
 
-        result = minimize(vet_cost_function,
-                          first_guess.flatten(),
-                          jac=vet_cost_function_gradient,
-                          args=(_input_images,
-                                (sectors_in_i, sectors_in_j),
-                                _mask,
-                                smooth_gain),
-                          method='CG',
-                          options=options)
+        result = minimize(
+            vet_cost_function,
+            first_guess.flatten(),
+            jac=vet_cost_function_gradient,
+            args=(_input_images, (sectors_in_i, sectors_in_j), _mask, smooth_gain),
+            method=optimization_method,
+            options=options,
+        )
 
         first_guess = result.x.reshape(*first_guess.shape)
 
         if verbose:
-            vet_cost_function(result.x,
-                              _input_images,
-                              (sectors_in_i, sectors_in_j),
-                              _mask,
-                              smooth_gain,
-                              debug=True)
-        if indexing == 'yx':
+            vet_cost_function(
+                result.x,
+                _input_images,
+                (sectors_in_i, sectors_in_j),
+                _mask,
+                smooth_gain,
+                debug=True,
+            )
+        if indexing == "yx":
             scaling_guesses.append(first_guess[::-1, ...])
         else:
             scaling_guesses.append(first_guess)
@@ -610,19 +620,25 @@ def vet(input_images,
         previous_sectors_in_i = sectors_in_i
         previous_sectors_in_j = sectors_in_j
 
-    first_guess = zoom(first_guess,
-                       (1,
-                        _input_images.shape[1] / sectors_in_i,
-                        _input_images.shape[2] / sectors_in_j),
-                       order=1, mode='nearest')
+    first_guess = zoom(
+        first_guess,
+        (
+            1,
+            _input_images.shape[1] / sectors_in_i,
+            _input_images.shape[2] / sectors_in_j,
+        ),
+        order=1,
+        mode="nearest",
+    )
 
+    first_guess = numpy.ascontiguousarray(first_guess)
     # Remove the extra padding if any
     ni = _input_images.shape[1]
     nj = _input_images.shape[2]
 
-    first_guess = first_guess[:, pad_i[0]:ni - pad_i[1], pad_j[0]:nj - pad_j[1]]
+    first_guess = first_guess[:, pad_i[0] : ni - pad_i[1], pad_j[0] : nj - pad_j[1]]
 
-    if indexing == 'yx':
+    if indexing == "yx":
         first_guess = first_guess[::-1, ...]
 
     if padding > 0:
