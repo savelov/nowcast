@@ -7,21 +7,24 @@ import pytest
 import pysteps
 from pysteps.tests.helpers import smart_assert
 
+pytest.importorskip("PIL")
+
 
 def test_io_import_mch_gif_shape():
     """Test the importer MCH GIF."""
     root_path = pysteps.rcparams.data_sources["mch"]["root_path"]
-    filename = os.path.join(root_path, "20170131",
-                            "AQC170310945F_00005.801.gif")
-    R, _, metadata = pysteps.io.import_mch_gif(filename, "AQC", "mm", 5.0)
-    assert R.shape == (640, 710)
+    filename = os.path.join(root_path, "20170131", "AQC170310945F_00005.801.gif")
+    precip, _, metadata = pysteps.io.import_mch_gif(filename, "AQC", "mm", 5.0)
+    assert precip.shape == (640, 710)
 
 
-expected_proj1 = ("+proj=somerc  +lon_0=7.43958333333333 "
-                  "+lat_0=46.9524055555556 +k_0=1 "
-                  "+x_0=600000 +y_0=200000 +ellps=bessel "
-                  "+towgs84=674.374,15.056,405.346,0,0,0,0 "
-                  "+units=m +no_defs")
+expected_proj1 = (
+    "+proj=somerc  +lon_0=7.43958333333333 "
+    "+lat_0=46.9524055555556 +k_0=1 "
+    "+x_0=600000 +y_0=200000 +ellps=bessel "
+    "+towgs84=674.374,15.056,405.346,0,0,0,0 "
+    "+units=m +no_defs"
+)
 
 # test_metadata: list of (variable,expected,tolerance) tuples
 test_metadata = [
@@ -32,6 +35,7 @@ test_metadata = [
     ("y2", 480000.0, 0.1),
     ("xpixelsize", 1000.0, 0.1),
     ("ypixelsize", 1000.0, 0.1),
+    ("cartesian_unit", "m", None),
     ("yorigin", "upper", None),
     ("accutime", 5.0, 0.1),
     ("unit", "mm", None),
@@ -40,6 +44,8 @@ test_metadata = [
     ("threshold", 0.0009628129986471908, 1e-19),
     ("institution", "MeteoSwiss", None),
     ("product", "AQC", None),
+    ("zr_a", 316.0, None),
+    ("zr_b", 1.5, None),
 ]
 
 
@@ -47,16 +53,17 @@ test_metadata = [
 def test_io_import_mch_gif_metadata(variable, expected, tolerance):
     """Test the importer MCH GIF."""
     root_path = pysteps.rcparams.data_sources["mch"]["root_path"]
-    filename = os.path.join(root_path, "20170131",
-                            "AQC170310945F_00005.801.gif")
+    filename = os.path.join(root_path, "20170131", "AQC170310945F_00005.801.gif")
     _, _, metadata = pysteps.io.import_mch_gif(filename, "AQC", "mm", 5.0)
     smart_assert(metadata[variable], expected, tolerance)
 
 
-expected_proj2 = ("+proj=somerc  +lon_0=7.43958333333333 +lat_0=46.9524055555556 "
-                  "+k_0=1 +x_0=600000 +y_0=200000 +ellps=bessel "
-                  "+towgs84=674.374,15.056,405.346,0,0,0,0 "
-                  "+units=m +no_defs")
+expected_proj2 = (
+    "+proj=somerc  +lon_0=7.43958333333333 +lat_0=46.9524055555556 "
+    "+k_0=1 +x_0=600000 +y_0=200000 +ellps=bessel "
+    "+towgs84=674.374,15.056,405.346,0,0,0,0 "
+    "+units=m +no_defs"
+)
 
 # test_geodata: list of (variable,expected,tolerance) tuples
 test_geodata = [
@@ -67,6 +74,7 @@ test_geodata = [
     ("y2", 480000.0, 0.1),
     ("xpixelsize", 1000.0, 0.1),
     ("ypixelsize", 1000.0, 0.1),
+    ("cartesian_unit", "m", None),
     ("yorigin", "upper", None),
 ]
 

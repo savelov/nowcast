@@ -9,8 +9,6 @@ Dependencies
 The pysteps package needs the following dependencies
 
 * `python >=3.6 <http://www.python.org/>`_
-* `attrdict <https://pypi.org/project/attrdict/>`_
-* `jsmin <https://pypi.org/project/jsmin/>`_
 * `jsonschema <https://pypi.org/project/jsonschema/>`_
 * `matplotlib <http://matplotlib.org/>`_
 * `netCDF4 <https://pypi.org/project/netCDF4/>`_
@@ -31,34 +29,31 @@ efficiency:
 
 Other optional dependencies include:
 
-* `cartopy <https://scitools.org.uk/cartopy/docs/v0.16/>`_ or
-  `basemap <https://matplotlib.org/basemap/>`_ (for geo-referenced
+* `cartopy >=0.18 <https://scitools.org.uk/cartopy/docs/latest/>`_ (for geo-referenced
   visualization)
 * `h5py <https://www.h5py.org/>`_ (for importing HDF5 data)
+* `pygrib <https://jswhit.github.io/pygrib/docs/index.html>`_ (for importing MRMS data)
 * `pywavelets <https://pywavelets.readthedocs.io/en/latest/>`_
   (for intensity-scale verification)
-* `cython <https://cython.org/>`_ (for compiling the variational echo tracking
-  method)
+* `pandas <https://pandas.pydata.org/>`_ and
+  `scikit-image <https://scikit-image.org/>`_ (for more advanced feature tracking)
 
-Note that cython also requires a C compiler.
-See https://cython.readthedocs.io/en/latest/src/quickstart/install.html for
-instructions.
 
 
 Anaconda install (recommended)
 ------------------------------
 
-Conda is an open source package management system and environment management
-system that runs on Windows, macOS and Linux.
-Conda quickly installs, runs and updates packages and their dependencies.
-It also allows to easily create, save, load and switch between different
+Conda is an open-source package management system and environment management
+system that runs on Windows, macOS, and Linux.
+Conda quickly installs, runs, and updates packages and their dependencies.
+It also allows you to easily create, save, load, or switch between different
 environments on your local computer.
 
 Since version 1.0, pySTEPS is available in conda-forge, a community-driven
 package repository for anaconda.
 
-There are two installation alternatives using anaconda: install pySTEPS in
-pre-existing environment, or install it new environment.
+There are two installation alternatives using anaconda: install pySTEPS in a
+pre-existing environment or install it new environment.
 
 New environment
 ~~~~~~~~~~~~~~~
@@ -77,7 +72,7 @@ Let's set this channel as the priority one::
 
     $ conda config --env --set channel_priority strict
 
-The later step is not strictly necessary, but is recommended since
+The latter step is not strictly necessary but is recommended since
 the conda-forge and the default Anaconda channels are not 100% compatible.
 
 Finally, to install pySTEPS and all its dependencies run::
@@ -88,20 +83,24 @@ Finally, to install pySTEPS and all its dependencies run::
 Install from source
 -------------------
 
-**IMPORTANT**: installing from source requires numpy to be installed.
+The recommended way to install pysteps from the source is using `pip`
+to adhere to the [PEP517 standards](https://www.python.org/dev/peps/pep-0517/).
+Using `pip` instead of `setup.py` guarantees that all the package dependencies
+are properly handled during the installation process.
+
 
 OSX users
 ~~~~~~~~~
 
 pySTEPS uses Cython extensions that need to be compiled with multi-threading
-support enabled. The default Apple Clang compiler does not support OpenMP,
-so using the default compiler would have disabled multi-threading and you will
-get the following error during the installation::
+support enabled. The default Apple Clang compiler does not support OpenMP.
+Hence, using the default compiler would have disabled multi-threading and may raise
+the following error during the installation::
 
     clang: error: unsupported option '-fopenmp'
     error: command 'gcc' failed with exit status 1
 
-To solve this issue, obtain the lastest gcc version with
+To solve this issue, obtain the latest gcc version with
 Homebrew_ that has multi-threading enabled::
 
     brew install gcc
@@ -135,66 +134,42 @@ Then, you can continue with the normal installation procedure described next.
 Installation
 ~~~~~~~~~~~~
 
-The installer needs numpy to compile the Cython extensions.
-If numpy is not installed you can install it by running in a terminal::
-
-    pip install numpy
-
 The latest pysteps version in the repository can be installed using pip by
 simply running in a terminal::
 
     pip install git+https://github.com/pySTEPS/pysteps
 
-Or, to install it using setup.py run (global installation)::
+Or, from a local copy of the repo (global installation)::
 
     git clone https://github.com/pySTEPS/pysteps
     cd pysteps
-    python setup.py install
+    pip install .
 
-For `user installation`_::
+The above commands install the latest version of the **master** branch,
+which is continuously under development.
 
-    python setup.py install --user
+.. _development_mode_install:
 
-.. _user installation: \
-    https://docs.python.org/2/install/#alternate-installation-the-user-scheme
+Development mode
+################
 
-If you want to install the package in a specific directory run::
+The latest version can also be installed in Development Mode, i.e.,
+in such a way that the project appears to be installed,
+but yet is still editable from the source tree::
 
-    python setup.py install --prefix=/path/to/local/dir
-
-Troubleshooting
-~~~~~~~~~~~~~~~
-
-The installation using **setup.py** will try to to install the minimum
-dependencies needed to run the program correctly.
-If you are not using the recommended conda environment (defined in
-environment.yml) or you are working with a minimal python distribution,
-you may get the following error during the installation::
-
-    ModuleNotFoundError: No module named 'Cython'
-
-This means that Cython is not installed, which is needed to build some of the
-dependencies of pySTEPS.
-
-For non-anaconda users, you can install Cython using::
-
-    pip install Cython
-
-Anaconda users can install Cython using::
-
-    conda install cython
+    pip install -e <path to local pysteps repo>
 
 
 Setting up the user-defined configuration file
 ----------------------------------------------
 
 .. _JSON: https://en.wikipedia.org/wiki/JSON
-.. _AttrDict: https://pypi.org/project/attrdict/
 
 The pysteps package allows the users to customize the default settings
 and configuration.
 The configuration parameters used by default are loaded from a user-defined
-JSON_ file and then stored in the **pysteps.rcparams** AttrDict_.
+JSON_ file and then stored in the **pysteps.rcparams**, a dictionary-like object
+that can be accessed as attributes or as items.
 
 .. toctree::
     :maxdepth: 1

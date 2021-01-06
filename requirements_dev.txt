@@ -6,7 +6,6 @@ pillow
 pyproj
 scipy
 matplotlib
-attrdict
 jsmin
 jsonschema
 netCDF4
@@ -14,9 +13,10 @@ netCDF4
 # Optional dependencies
 dask
 pyfftw
-cartopy
-basemap
+cartopy>=0.18
 h5py
+scikit-image
+pandas
 
 # Testing
 pytest

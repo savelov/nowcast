@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 pysteps.nowcasts.utils
 ======================
@@ -10,10 +11,43 @@ Module with common utilities used by nowcasts methods.
     print_ar_params
     print_corrcoefs
     stack_cascades
-    recompose_cascade
 """
 
 import numpy as np
+
+
+def binned_timesteps(timesteps):
+    """Compute a binning of the given irregular time steps.
+
+    Parameters
+    ----------
+    timesteps: array_like
+        List or one-dimensional array containing the time steps in ascending
+        order.
+
+    Returns
+    -------
+    out: list
+        List of length int(np.ceil(timesteps[-1]))+1 containing the bins. Each
+        element is a list containing the indices of the time steps falling in
+        the bin (excluding the right edge).
+    """
+    timesteps = list(timesteps)
+    if not sorted(timesteps) == timesteps:
+        raise ValueError("timesteps is not in ascending order")
+
+    if np.any(np.array(timesteps) < 0):
+        raise ValueError("negative time steps are not allowed")
+
+    num_bins = int(np.ceil(timesteps[-1]))
+    timestep_range = np.arange(num_bins + 1)
+    bin_idx = np.digitize(timesteps, timestep_range, right=False)
+
+    out = [[] for i in range(num_bins + 1)]
+    for i, bi in enumerate(bin_idx):
+        out[bi - 1].append(i)
+
+    return out
 
 
 def print_ar_params(PHI):
@@ -21,9 +55,9 @@ def print_ar_params(PHI):
 
     Parameters
     ----------
-    PHI : array_like
-      Array of shape (n, p) containing the AR(p) parameters for n cascade
-      levels.
+    PHI: array_like
+        Array of shape (n, p) containing the AR(p) parameters for n cascade
+        levels.
     """
     print("****************************************")
     print("* AR(p) parameters for cascade levels: *")
@@ -57,7 +91,7 @@ def print_corrcoefs(GAMMA):
 
     Parameters
     ----------
-    GAMMA : array_like
+    GAMMA: array_like
       Array of shape (m, n) containing n correlation coefficients for m cascade
       levels.
     """
@@ -88,59 +122,38 @@ def print_corrcoefs(GAMMA):
         print(hline_str)
 
 
-def stack_cascades(R_d, n_levels, donorm=True):
+def stack_cascades(R_d, n_levels, convert_to_full_arrays=False):
     """Stack the given cascades into a larger array.
-    
+
     Parameters
     ----------
-    R_d : list
-      List of cascades obtained by calling a method implemented in
-      pysteps.cascade.decomposition.
-    n_levels : int
-      Number of cascade levels.
-    donorm : bool
-      If True, normalize the cascade levels before stacking.
-    
+    R_d: list
+        List of cascades obtained by calling a method implemented in
+        pysteps.cascade.decomposition.
+    n_levels: int
+        The number of cascade levels.
+
     Returns
     -------
-    out : tuple
-      A three-element tuple containing a four-dimensional array of stacked
-      cascade levels and lists of mean values and standard deviations for each
-      cascade level (taken from the last cascade).
+    out: tuple
+        A list of three-dimensional arrays containing the stacked cascade levels.
     """
     R_c = []
-    mu = np.empty(n_levels)
-    sigma = np.empty(n_levels)
 
     n_inputs = len(R_d)
 
     for i in range(n_levels):
         R_ = []
-        mu_ = 0
-        sigma_ = 1
         for j in range(n_inputs):
-            if donorm:
-                mu_ = R_d[j]["means"][i]
-                sigma_ = R_d[j]["stds"][i]
-            R__ = (R_d[j]["cascade_levels"][i, :, :] - mu_) / sigma_
+            R__ = R_d[j]["cascade_levels"][i]
+            if R_d[j]["compact_output"] and convert_to_full_arrays:
+                R_tmp = np.zeros(R_d[j]["weight_masks"].shape[1:], dtype=complex)
+                R_tmp[R_d[j]["weight_masks"][i]] = R__
+                R__ = R_tmp
             R_.append(R__)
-        mu[i] = R_d[n_inputs - 1]["means"][i]
-        sigma[i] = R_d[n_inputs - 1]["stds"][i]
         R_c.append(np.stack(R_))
 
-    return np.stack(R_c), mu, sigma
+    if not np.any([R_d[i]["compact_output"] for i in range(len(R_d))]):
+        R_c = np.stack(R_c)
 
-
-def recompose_cascade(R, mu, sigma):
-    """Recompose a cascade by inverting the normalization and summing the
-    cascade levels.
-    
-    Parameters
-    ----------
-    R : array_like
-      
-    """
-    R_rc = [(R[i, :, :] * sigma[i]) + mu[i] for i in range(len(mu))]
-    R_rc = np.sum(np.stack(R_rc), axis=0)
-
-    return R_rc
+    return R_c
